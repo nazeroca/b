@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AV Cruise AI Player</title>
+<style>
+    /* --- デザイン設定 --- */
+    body { 
+        background-color: #000; 
+        color: #fff; 
+        margin: 0; 
+        overflow: hidden; 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+    }
+    
+    #player-container { 
+        width: 100vw; 
+        height: 100vh; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        position: relative; 
+    }
+    
+    video { 
+        width: 100%; 
+        height: 100%; 
+        object-fit: contain; /* 画面に収める */
+    }
+    
+    /* 操作パネル（初期画面・タップで表示） */
+    #controls {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.85); 
+        z-index: 100;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        transition: opacity 0.4s;
+    }
+    #controls.hidden { opacity: 0; pointer-events: none; }
+    
+    h1 { margin-bottom: 30px; letter-spacing: 2px; font-size: 24px; }
+    h1 span { color: #ff0055; font-size: 0.6em; vertical-align: middle; }
+
+    /* ファイル選択ボタン */
+    .file-btn {
+        background: linear-gradient(45deg, #ff0055, #ff5500);
+        color: white; padding: 16px 32px; 
+        border-radius: 50px; font-weight: bold; font-size: 18px; cursor: pointer;
+        box-shadow: 0 4px 15px rgba(255, 0, 85, 0.4);
+        text-align: center;
+        border: 2px solid rgba(255,255,255,0.2);
+    }
+    .file-btn:active { transform: scale(0.95); }
+    input[type="file"] { display: none; }
+    
+    #status { margin-top: 20px; font-size: 14px; color: #aaa; min-height: 20px; padding: 0 20px; text-align: center; line-height: 1.5; }
+    
+    /* 解析中のオーバーレイ表示 */
+    #analyzing-overlay {
+        position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.6); border: 1px solid #333;
+        padding: 8px 20px; border-radius: 20px;
+        font-size: 13px; color: #00ff88; pointer-events: none; opacity: 0;
+        transition: opacity 0.3s;
+        display: flex; align-items: center; gap: 10px;
+    }
+    #analyzing-overlay.show { opacity: 1; }
+    
+    /* ローディングアニメーション */
+    .spinner {
+        width: 10px; height: 10px; border: 2px solid #00ff88; border-top-color: transparent; border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 次へボタン */
+    #skip-btn {
+        position: absolute; bottom: 30px; right: 30px; z-index: 90;
+        background: rgba(255, 255, 255, 0.15); 
+        backdrop-filter: blur(5px);
+        border: 1px solid rgba(255,255,255,0.3); color: #fff;
+        padding: 0; border-radius: 50%; width: 64px; height: 64px;
+        font-size: 12px; font-weight: bold; letter-spacing: 1px;
+        display: none; cursor: pointer;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    }
+    #skip-btn:active { background: rgba(255,255,255,0.3); transform: scale(0.95); }
+</style>
+</head>
+<body>
+
+<canvas id="hiddenCanvas" style="display:none;"></canvas>
+
+<div id="controls">
+    <h1>AV Cruise <span>AI AUTO</span></h1>
+    <label class="file-btn">
+        📂 動画を選択
+        <br><span style="font-size:0.7em; font-weight:normal;">(複数ファイル選択推奨)</span>
+        <input type="file" id="fileInput" multiple accept="video/*">
+    </label>
+    <div id="status">スマホ内の動画を選択してください。<br>通信量はかかりません。</div>
+</div>
+
+<div id="player-container">
+    <video id="mainVideo" playsinline controls></video>
+    <div id="analyzing-overlay"><div class="spinner"></div><span id="analyze-text">AI Scanning...</span></div>
+</div>
+
+<button id="skip-btn" onclick="playNext()">NEXT</button>
+
+<script>
+    // ==========================================
+    //  設定エリア (ここでお好みに調整できます)
+    // ==========================================
+    
+    // 再生時間の範囲（秒）
+    // この範囲内でランダムに次の動画へ飛びます
+    const DURATION_MIN = 120; // 最短 2分 (120秒)
+    const DURATION_MAX = 180; // 最長 3分 (180秒)
+
+    // 肌色探査の設定
+    const SAMPLE_COUNT = 6;       // 1動画あたり何箇所チェックするか（多いほど精度アップ、遅くなる）
+    const SEARCH_RANGE_MIN = 0.3; // 動画全体の30%地点から探索開始
+    const SEARCH_RANGE_MAX = 0.9; // 動画全体の90%地点まで探索
+
+    // ==========================================
+    //  以下、プログラム本体
+    // ==========================================
+
+    const video = document.getElementById('mainVideo');
+    const canvas = document.getElementById('hiddenCanvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    
+    const fileInput = document.getElementById('fileInput');
+    const status = document.getElementById('status');
+    const controls = document.getElementById('controls');
+    const analyzeOverlay = document.getElementById('analyzing-overlay');
+    const analyzeText = document.getElementById('analyze-text');
+    const skipBtn = document.getElementById('skip-btn');
+
+    let playlist = [];
+    let cruiseTimer = null;
+
+    // ファイル選択時の処理
+    fileInput.addEventListener('change', function(e) {
+        playlist = Array.from(e.target.files);
+        if (playlist.length === 0) return;
+        
+        // 配列をシャッフル
+        shuffleArray(playlist);
+        
+        status.innerText = `${playlist.length} 本の動画をロードしました。\n再生を開始します...`;
+        
+        // 1秒後に再生開始
+        setTimeout(() => {
+            controls.classList.add('hidden');
+            skipBtn.style.display = 'block';
+            playNext();
+        }, 1000);
+    });
+
+    // 配列シャッフル関数
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
+
+    // 次の動画を再生するメイン関数
+    async function playNext() {
+        if (playlist.length === 0) return;
+        
+        // タイマーリセット
+        if (cruiseTimer) clearTimeout(cruiseTimer);
+
+        // プレイリストの先頭を取り出して末尾へ（無限ループ）
+        const currentFile = playlist.shift();
+        playlist.push(currentFile);
+
+        // ファイルURL生成
+        const fileURL = URL.createObjectURL(currentFile);
+        video.src = fileURL;
+        
+        // 表示更新
+        analyzeOverlay.classList.add('show');
+        analyzeText.innerText = "Loading Video...";
+
+        // 動画メタデータ読み込み待ち
+        video.onloadedmetadata = async () => {
+            analyzeText.innerText = "AI Scanning Best Shot...";
+            
+            // AIロジックで「美味しい時間」を探す
+            const bestTime = await findBestClimaxTime(video);
+            
+            analyzeOverlay.classList.remove('show');
+            
+            // 決定した時間から再生
+            video.currentTime = bestTime;
+            
+            try {
+                await video.play();
+            } catch (err) {
+                // 自動再生ブロック対策（画面タップを促す）
+                analyzeText.innerText = "Tap screen to start";
+                analyzeOverlay.classList.add('show');
+            }
+
+            // 次の動画へ飛ぶタイマーをセット
+            setNextTimer();
+        };
+
+        // エラー時はスキップ
+        video.onerror = () => { 
+            console.log("Video Error, skipping."); 
+            playNext(); 
+        };
+    }
+
+    // ランダムな時間経過後に次へ飛ぶタイマー
+    function setNextTimer() {
+        // 設定範囲内でランダムな秒数を決定
+        const nextDuration = Math.random() * (DURATION_MAX - DURATION_MIN) + DURATION_MIN;
+        console.log(`Next jump in: ${Math.floor(nextDuration)} sec`);
+
+        cruiseTimer = setTimeout(() => {
+            playNext();
+        }, nextDuration * 1000);
+    }
+
+    // --- 肌色判定ロジック ---
+
+    // 指定時間の肌色率を計算する
+    function checkSkinRatioAt(time) {
+        return new Promise(resolve => {
+            const onSeek = () => {
+                video.removeEventListener('seeked', onSeek);
+                
+                // キャンバスに描画 (160x90に縮小して高速処理)
+                canvas.width = 160; 
+                canvas.height = 90;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = frame.data;
+                let skinPixels = 0;
+                let totalPixels = data.length / 4;
+
+                // 全ピクセル走査
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    
+                    // 肌色判定条件 (簡易版)
+                    // 赤成分が強く、かつ明るさが一定以上
+                    if (r > 60 && g > 40 && b > 20 && 
+                        r > g && r > b && 
+                        (Math.max(r,g,b) - Math.min(r,g,b) > 15) &&
+                        Math.abs(r - g) > 15) {
+                        skinPixels++;
+                    }
+                }
+                
+                resolve(skinPixels / totalPixels);
+            };
+
+            // シークイベント登録後に時間を変更
+            video.addEventListener('seeked', onSeek);
+            video.currentTime = time;
+        });
+    }
+
+    // 複数の候補地点を比較してベストな時間を返す
+    async function findBestClimaxTime(vid) {
+        const duration = vid.duration;
+        
+        // 動画が短い(2分以下)なら冒頭から再生
+        if (duration < 120) return 0;
+
+        const minTime = duration * SEARCH_RANGE_MIN;
+        const maxTime = duration * SEARCH_RANGE_MAX;
+
+        let bestTime = minTime;
+        let maxScore = -1;
+
+        // 候補時間をランダム生成
+        const candidates = [];
+        for(let i=0; i<SAMPLE_COUNT; i++) {
+            candidates.push(Math.random() * (maxTime - minTime) + minTime);
+        }
+
+        // 解析中は音を消す
+        const originalMuted = vid.muted;
+        vid.muted = true;
+
+        // 候補地点を順番にチェック
+        for (let time of candidates) {
+            const score = await checkSkinRatioAt(time);
+            // console.log(`Time: ${Math.floor(time/60)}m, Score: ${(score*100).toFixed(1)}%`);
+            
+            if (score > maxScore) {
+                maxScore = score;
+                bestTime = time;
+            }
+        }
+
+        // 音声を戻す
+        vid.muted = originalMuted;
+        
+        // ベスト地点の15秒前からスタート（いきなり核心でなく文脈を持たせる）
+        return Math.max(0, bestTime - 15);
+    }
+
+    // 画面タップでメニュー表示切替
+    document.body.addEventListener('click', (e) => {
+        // ボタンや入力欄のクリックは除外
+        if(e.target === skipBtn || e.target.tagName === 'INPUT' || e.target.tagName === 'LABEL') return;
+        
+        // AI解析中でなければメニュー開閉
+        if (!analyzeOverlay.classList.contains('show')) {
+            controls.classList.toggle('hidden');
+        }
+    });
+
+</script>
+</body>
+</html>
