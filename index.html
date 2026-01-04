@@ -3,102 +3,110 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>AV Cockpit Rhythm</title>
+<title>AV Cockpit Rhythm Final</title>
 <style>
-    /* === ネオン・サイバーパンク デザイン設定 === */
+    /* === デザイン設定 === */
     :root {
         --bg-main: #050008;
-        --panel-bg: rgba(20, 0, 10, 0.95);
+        --panel-bg: #100508;
         --neon-pink: #ff0055;
         --neon-blue: #00d2ff;
+        --neon-green: #00ff99;
         --text-color: #eee;
     }
-    body { background: var(--bg-main); margin: 0; overflow: hidden; font-family: 'Courier New', sans-serif; color: var(--text-color); }
+    body { background: var(--bg-main); margin: 0; overflow: hidden; font-family: 'Courier New', sans-serif; color: var(--text-color); user-select: none; }
     
-    /* 全体レイアウト（左右分割） */
-    #container {
-        display: flex; width: 100vw; height: 100vh;
-    }
+    #container { display: flex; width: 100vw; height: 100vh; }
 
-    /* 左側：動画エリア */
+    /* 左側：動画ステージ */
     #video-stage {
         flex: 1; position: relative; background: #000; overflow: hidden;
-        border-right: 3px solid var(--neon-pink);
-        box-shadow: 0 0 20px var(--neon-pink);
+        border-right: 4px solid var(--neon-pink);
+        box-shadow: 0 0 20px rgba(255, 0, 85, 0.3);
     }
-    video { width: 100%; height: 100%; object-fit: contain; }
+    video { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+    
+    /* ガイド表示 */
+    .overlay-guide {
+        position: absolute; bottom: 20px; left: 0; width: 100%; 
+        text-align: center; color: rgba(255,255,255,0.4); font-size: 12px; pointer-events: none;
+        text-shadow: 0 0 5px #000;
+    }
 
     /* 右側：コクピットパネル */
     #cockpit-panel {
-        width: 320px; background: var(--panel-bg);
+        width: 340px; background: var(--panel-bg);
         display: flex; flex-direction: column;
-        padding: 15px; box-sizing: border-box;
-        border-left: 2px solid rgba(255, 0, 85, 0.3);
-        z-index: 50; /* 動画より上 */
+        padding: 10px; box-sizing: border-box;
+        border-left: 1px solid rgba(255, 255, 255, 0.1);
+        z-index: 50;
     }
 
-    /* パネル内の各セクション */
     .panel-section {
-        margin-bottom: 15px; border: 1px solid var(--neon-blue);
-        background: rgba(0, 20, 30, 0.5); padding: 10px; border-radius: 8px;
+        margin-bottom: 10px; border: 1px solid var(--neon-blue);
+        background: rgba(0, 20, 30, 0.6); padding: 8px; border-radius: 6px;
         position: relative;
     }
-    .section-title {
-        font-size: 12px; color: var(--neon-blue); margin-bottom: 5px;
-        text-transform: uppercase; letter-spacing: 1px;
-    }
+    .title { font-size: 11px; color: var(--neon-blue); margin-bottom: 5px; letter-spacing: 1px; font-weight: bold; }
 
-    /* UIボタン共通 */
-    .file-btn {
-        background: linear-gradient(45deg, var(--neon-pink), #5500ff);
-        border: 1px solid var(--text-color);
-        color: white; padding: 10px; border-radius: 4px; 
-        font-weight: bold; font-size: 14px; cursor: pointer; display: block; text-align: center;
-        box-shadow: 0 0 10px var(--neon-pink); text-shadow: 0 0 5px #fff;
+    /* UIボタン */
+    .btn-group { display: flex; gap: 5px; }
+    .btn {
+        flex: 1; background: #222; border: 1px solid var(--neon-blue); color: #fff;
+        padding: 10px 0; border-radius: 4px; font-weight: bold; cursor: pointer; text-align: center;
+        transition: all 0.1s; font-size: 13px;
     }
-    .file-btn:active { transform: scale(0.98); }
+    .btn-main { background: linear-gradient(135deg, var(--neon-pink), #aa0033); border: none; box-shadow: 0 0 10px var(--neon-pink); }
+    .btn-skip { background: #004455; border-color: var(--neon-blue); color: var(--neon-blue); }
+    .btn:active { transform: scale(0.96); filter: brightness(1.2); }
     input[type="file"] { display: none; }
-    
-    #bpm-meter { font-size: 20px; font-weight: bold; color: var(--neon-pink); text-shadow: 0 0 10px var(--neon-pink); text-align: center; }
-    #bpm-label { font-size: 10px; color: #aaa; text-align: center; }
 
-    /* 中央：ノーツ落下レーン */
+    /* メーター類 */
+    #bpm-display { 
+        font-size: 24px; font-weight: bold; text-align: center; margin: 5px 0; 
+        color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green);
+    }
+    #bpm-sub { font-size: 10px; text-align: center; color: #888; }
+
+    /* ヒートゲージ */
+    .heat-container { width: 100%; height: 6px; background: #333; margin-top: 5px; border-radius: 3px; overflow: hidden; }
+    #heat-bar { width: 0%; height: 100%; background: linear-gradient(90deg, var(--neon-blue), var(--neon-pink)); transition: width 0.1s; }
+
+    /* 横スクロール・ノーツレーン */
     #notes-lane-wrap {
         flex: 1; position: relative; overflow: hidden;
-        border: 2px solid var(--neon-blue);
-        background: rgba(0,0,0,0.3);
-        box-shadow: inset 0 0 20px var(--neon-blue);
+        background: linear-gradient(90deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 100%);
+        border-top: 2px solid var(--neon-blue);
+        border-bottom: 2px solid var(--neon-blue);
+        margin-bottom: 10px;
     }
     #notes-canvas { position: absolute; top:0; left:0; width:100%; height:100%; z-index: 10; }
+    
+    /* 判定ライン（左側に縦線） */
     #hit-line {
-        position: absolute; bottom: 20%; left: 0; width: 100%; height: 4px;
-        background: rgba(255, 255, 255, 0.5); z-index: 5;
-        box-shadow: 0 0 15px #fff, 0 0 5px var(--neon-blue);
+        position: absolute; top: 0; left: 60px; width: 4px; height: 100%;
+        background: rgba(255, 255, 255, 0.6); z-index: 5;
+        box-shadow: 0 0 15px #fff;
     }
 
-    /* 下部：スペクトラム */
+    /* スペクトラム */
     #spectrum-wrap {
-        height: 150px; position: relative;
-        border: 2px solid var(--neon-pink); overflow: hidden;
-        background: #000;
-        box-shadow: inset 0 0 15px var(--neon-pink);
+        height: 80px; position: relative; background: #000;
+        border: 1px solid #444; overflow: hidden;
     }
-    #spectrum-canvas { position: absolute; top:0; left:0; width:100%; height:100%; }
-    
-    /* 初期オーバーレイ（修正：ここにボタンを置く） */
-    #init-overlay {
+    #spectrum-canvas { width: 100%; height: 100%; }
+
+    /* 初期ロード画面 */
+    #init-screen {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 999;
-        background: rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center;
+        background: rgba(0,0,0,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center;
     }
-    
-    /* スタートボタン（特大） */
-    .start-btn-large {
-        padding: 20px 50px; font-size: 24px; border-radius: 50px; margin-top: 30px;
-        background: linear-gradient(90deg, #ff0055, #ff00aa);
-        box-shadow: 0 0 30px #ff0055;
-        border: 2px solid #fff; animation: pulse 2s infinite;
+    .start-btn {
+        padding: 20px 60px; font-size: 24px; border-radius: 50px; margin-top: 30px; cursor: pointer;
+        background: var(--neon-pink); color: #fff; font-weight: bold; border: 2px solid #fff;
+        box-shadow: 0 0 30px var(--neon-pink); animation: pulse 1.5s infinite;
     }
-    @keyframes pulse { 0% { box-shadow: 0 0 20px #ff0055; } 50% { box-shadow: 0 0 50px #ff0055; } 100% { box-shadow: 0 0 20px #ff0055; } }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 </style>
 </head>
 <body>
@@ -106,26 +114,33 @@
 <div id="container">
     <div id="video-stage">
         <video id="mainVideo" playsinline crossorigin="anonymous"></video>
+        <div class="overlay-guide">Double Tap Video to Fullscreen Mode</div>
     </div>
 
     <div id="cockpit-panel">
         
         <div class="panel-section">
-            <div class="section-title">System Control</div>
-            <label class="file-btn">
-                📂 ADD FILES
-                <input type="file" id="subFileInput" multiple accept="video/*">
-            </label>
+            <div class="title">SYSTEM CONTROL</div>
+            <div class="btn-group">
+                <label class="btn btn-main">
+                    📂 ADD FILES
+                    <input type="file" id="subFileInput" multiple accept="video/*">
+                </label>
+                <button class="btn btn-skip" onclick="manualSkip()">SKIP ⏭</button>
+            </div>
         </div>
 
         <div class="panel-section">
-            <div class="section-title">Rhythm Engine</div>
-            <div id="bpm-meter">READY</div>
-            <div id="bpm-label">INTERVAL TIME</div>
+            <div class="title">ENGINE HEAT (INERTIA)</div>
+            <div id="bpm-display">IDLE</div>
+            <div id="bpm-sub">WAITING INPUT...</div>
+            <div class="heat-container">
+                <div id="heat-bar"></div>
+            </div>
         </div>
 
-        <div class="panel-section" style="flex:1; display:flex; flex-direction:column; padding:5px;">
-            <div class="section-title">STROKE GUIDE</div>
+        <div class="panel-section" style="flex:1; display:flex; flex-direction:column; padding:0; border:none; background:none;">
+            <div class="title" style="padding-left:5px;">RHYTHM FLOW &gt;&gt;&gt;</div>
             <div id="notes-lane-wrap">
                 <div id="hit-line"></div>
                 <canvas id="notes-canvas"></canvas>
@@ -133,84 +148,98 @@
         </div>
 
         <div class="panel-section" style="padding:5px;">
-            <div class="section-title">AUDIO SPECTRUM</div>
+            <div class="title">AUDIO VISUALIZER</div>
             <div id="spectrum-wrap">
                 <canvas id="spectrum-canvas"></canvas>
             </div>
         </div>
-
     </div>
 </div>
 
-<div id="init-overlay">
+<div id="init-screen">
     <h1 style="color:var(--neon-pink); text-shadow:0 0 20px var(--neon-pink); font-size:40px; margin:0;">AV COCKPIT</h1>
-    <h2 style="color:var(--neon-blue); margin-top:0;">RHYTHM SYNC SYSTEM</h2>
+    <div style="color:var(--neon-blue); letter-spacing:4px; margin-bottom:20px;">FINAL EDITION</div>
     
-    <label class="file-btn start-btn-large">
-        🚀 START SYSTEM
+    <label class="start-btn">
+        🚀 LAUNCH SYSTEM
         <input type="file" id="mainFileInput" multiple accept="video/*">
     </label>
-    
-    <p style="color:#888; margin-top:20px;">Select Video Folder to Launch</p>
 </div>
 
 <script>
-    // === 設定 ===
-    const INTERVAL_SLOW = 5000; const INTERVAL_FAST = 500;
-    const NOTE_FALL_SPEED = 6;
-    const CRUISE_MIN_SEC = 120; const CRUISE_MAX_SEC = 240;
+    // === 設定パラメータ ===
+    const INTERVAL_SLOW = 4000; // 最も遅い間隔 (4秒)
+    const INTERVAL_FAST = 400;  // 最も速い間隔 (0.4秒)
+    const NOTE_SPEED = 6;       // ノーツの横移動速度
+    const HIT_X = 60;           // 判定ラインのX座標
 
-    // === DOM ===
+    // === システム変数 ===
     const video = document.getElementById('mainVideo');
     const notesCanvas = document.getElementById('notes-canvas');
     const specCanvas = document.getElementById('spectrum-canvas');
     const nCtx = notesCanvas.getContext('2d');
     const sCtx = specCanvas.getContext('2d');
-    const bpmMeter = document.getElementById('bpm-meter');
-    const initOverlay = document.getElementById('init-overlay');
+    
+    const bpmDisplay = document.getElementById('bpm-display');
+    const bpmSub = document.getElementById('bpm-sub');
+    const heatBar = document.getElementById('heat-bar');
+    const initScreen = document.getElementById('init-screen');
 
-    // === 変数 ===
     let playlist = [];
-    let audioCtx, analyser, sourceNode;
+    let audioCtx, analyser;
     let notes = [];
     let cruiseTimer = null;
+    
+    // リズム制御
     let nextNoteTime = 0;
-    let currentInterval = 2000;
-    let dynamicMin = 100; let dynamicMax = 150;
+    
+    // ★ヒートシステム (慣性制御)
+    // 0.0 = 冷え冷え, 1.0 = オーバーヒート寸前
+    let currentHeat = 0; 
 
-    // === イベントリスナー (メイン開始ボタン) ===
+    // === イベント設定 ===
     document.getElementById('mainFileInput').addEventListener('change', handleFileSelect);
-    // サブの追加ボタン
     document.getElementById('subFileInput').addEventListener('change', handleFileSelect);
 
     function handleFileSelect(e) {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
         
-        // プレイリストに追加
         playlist = playlist.concat(files);
         shuffleArray(playlist);
-        
-        // AudioContextの起動 (ユーザー操作内で行う必要あり)
-        initAudio();
+        initAudio(); 
 
-        // 最初のロードなら画面遷移
-        if (initOverlay.style.display !== 'none') {
-            initOverlay.style.display = 'none';
+        if (initScreen.style.display !== 'none') {
+            initScreen.style.display = 'none';
             playNext();
             requestAnimationFrame(renderLoop);
         }
     }
+
+    // === 全画面化ロジック (全体をFullscreen) ===
+    let lastTap = 0;
+    document.getElementById('video-stage').addEventListener('click', () => {
+        const now = new Date().getTime();
+        if (now - lastTap < 300) {
+            // ダブルタップ時: documentElement(ページ全体)をフルスクリーン
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(e => console.log(e));
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+            }
+        }
+        lastTap = now;
+    });
 
     function initAudio() {
         if(audioCtx) return;
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         audioCtx = new AudioContext();
         analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 1024;
-        analyser.smoothingTimeConstant = 0.85;
-        sourceNode = audioCtx.createMediaElementSource(video);
-        sourceNode.connect(analyser);
+        analyser.fftSize = 512;
+        analyser.smoothingTimeConstant = 0.85; // なめらかに
+        const source = audioCtx.createMediaElementSource(video);
+        source.connect(analyser);
         analyser.connect(audioCtx.destination);
     }
 
@@ -225,140 +254,170 @@
         if(playlist.length === 0) return;
         if(cruiseTimer) clearTimeout(cruiseTimer);
         
-        // 次の動画へ（無限ループ用に配列操作）
+        // 動画入れ替え
         const file = playlist.shift();
         playlist.push(file);
 
-        // 動画切り替え時リセット
-        dynamicMin = 80; dynamicMax = 120; currentInterval = 2000;
-        
         video.src = URL.createObjectURL(file);
-        video.play().catch(e => console.log("Auto-play prevented", e));
+        video.play().catch(()=>{});
         
-        // 見どころから開始
+        // 開始位置ランダム (30%〜70%)
         video.onloadedmetadata = () => { 
-            video.currentTime = video.duration * (0.3 + Math.random() * 0.5); 
+            video.currentTime = video.duration * (0.3 + Math.random() * 0.4); 
+            // 動画が変わった瞬間はヒートを少しリセット（余韻は残す）
+            currentHeat = currentHeat * 0.5;
         };
         
-        const duration = (CRUISE_MIN_SEC + Math.random() * (CRUISE_MAX_SEC - CRUISE_MIN_SEC)) * 1000;
+        // オートクルーズ (3分〜5分)
+        const duration = (180 + Math.random() * 120) * 1000;
         cruiseTimer = setTimeout(playNext, duration);
     }
 
-    // === メイン描画ループ ===
+    function manualSkip() {
+        playNext();
+    }
+
+    // === メインループ ===
     function renderLoop() {
         requestAnimationFrame(renderLoop);
         if(!analyser) return;
 
-        // キャンバスサイズ調整
-        const noteWrap = notesCanvas.parentElement;
-        notesCanvas.width = noteWrap.clientWidth; 
-        notesCanvas.height = noteWrap.clientHeight;
-        
-        const specWrap = specCanvas.parentElement;
-        specCanvas.width = specWrap.clientWidth;
-        specCanvas.height = specWrap.clientHeight;
+        // Canvasサイズ同期
+        syncCanvas(notesCanvas);
+        syncCanvas(specCanvas);
 
-        // オーディオデータ取得
-        const bufferLength = analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-        analyser.getByteFrequencyData(dataArray);
+        // --- 1. オーディオ解析 ---
+        const bufferLen = analyser.frequencyBinCount;
+        const data = new Uint8Array(bufferLen);
+        analyser.getByteFrequencyData(data);
 
-        // 1. スペクトラム描画
-        drawSpectrum(dataArray, bufferLength);
+        drawSpectrum(data, bufferLen);
 
-        // 2. エネルギー計算
+        // 音量エネルギー計算 (低音〜中音域)
         let energy = 0;
-        const range = Math.floor(bufferLength * 0.4); 
-        for(let i = 0; i < range; i++) energy += dataArray[i];
-        energy = energy / range;
+        const range = Math.floor(bufferLen * 0.5);
+        for(let i=0; i<range; i++) energy += data[i];
+        energy = energy / range; // 0〜255
 
-        // 3. 自動正規化 & インターバル計算
-        if (energy > 10) { 
-            if (energy < dynamicMin) dynamicMin = energy; else dynamicMin += 0.1;
-            if (energy > dynamicMax) dynamicMax = energy; else dynamicMax -= 0.2;
-            if (dynamicMax - dynamicMin < 30) dynamicMax = dynamicMin + 30; 
+        // --- 2. ヒートシステム (慣性物理演算) ---
+        // 加速: 音量が一定(20)を超えたら加熱
+        if (energy > 20) {
+            // 音が大きいほど早く温まる
+            // 係数 0.005 で「じわじわ」上げる
+            currentHeat += 0.005 * (energy / 100);
         }
-        let ratio = (energy - dynamicMin) / (dynamicMax - dynamicMin);
-        if (ratio < 0) ratio = 0; if (ratio > 1) ratio = 1;
 
-        const targetInterval = INTERVAL_SLOW - (ratio * (INTERVAL_SLOW - INTERVAL_FAST));
-        currentInterval = currentInterval * 0.9 + targetInterval * 0.1;
+        // 自然冷却: 常に少しずつ冷める
+        currentHeat -= 0.002;
 
-        // メーター更新
-        const percent = Math.round(ratio * 100);
-        bpmMeter.innerText = `${(currentInterval/1000).toFixed(2)}s / LV.${percent}`;
-        const hue = 180 + (ratio * 180); 
-        bpmMeter.style.color = `hsl(${hue}, 100%, 60%)`;
-        bpmMeter.style.textShadow = `0 0 15px hsl(${hue}, 100%, 50%)`;
+        // クランプ (0.0 〜 1.0)
+        if (currentHeat < 0) currentHeat = 0;
+        if (currentHeat > 1) currentHeat = 1;
 
-        // 4. ノーツ生成
+        // ヒートバー更新
+        heatBar.style.width = (currentHeat * 100) + "%";
+        
+        // ヒート値からインターバル計算 (リニア補完)
+        // Heat 0.0 -> Slow(4000ms), Heat 1.0 -> Fast(400ms)
+        const currentInterval = INTERVAL_SLOW - (currentHeat * (INTERVAL_SLOW - INTERVAL_FAST));
+
+        // 表示更新
+        const percent = Math.round(currentHeat * 100);
+        bpmDisplay.innerText = `Lv.${percent}`;
+        bpmSub.innerText = `INT: ${(currentInterval/1000).toFixed(2)}s`;
+        
+        // 色変化 (青 -> ピンク -> 赤)
+        const hue = 180 + (currentHeat * 180);
+        bpmDisplay.style.color = `hsl(${hue}, 100%, 60%)`;
+        heatBar.style.background = `hsl(${hue}, 100%, 60%)`;
+
+        // --- 3. ノーツ生成 (横スクロール用) ---
         const now = Date.now();
         if (now > nextNoteTime) {
-            spawnNote(ratio, hue);
+            spawnNote(currentHeat, hue);
             nextNoteTime = now + currentInterval;
         }
+
         drawNotes();
+    }
+
+    // Canvasサイズ調整
+    function syncCanvas(cvs) {
+        const p = cvs.parentElement;
+        if (cvs.width !== p.clientWidth || cvs.height !== p.clientHeight) {
+            cvs.width = p.clientWidth;
+            cvs.height = p.clientHeight;
+        }
     }
 
     function drawSpectrum(data, bufferLen) {
         const W = specCanvas.width; const H = specCanvas.height;
         sCtx.clearRect(0, 0, W, H);
 
-        const barWidth = (W / bufferLen) * 2.5;
+        const barW = (W / bufferLen) * 2.5;
         let x = 0;
 
         for(let i = 0; i < bufferLen; i++) {
-            const barHeight = data[i] / 255 * H;
-            const hue = i / bufferLen * 360; 
+            const barH = (data[i] / 255) * H;
+            const hue = (i / bufferLen) * 360;
             sCtx.fillStyle = `hsl(${hue}, 100%, 50%)`;
-            sCtx.fillRect(x, H - barHeight, barWidth, barHeight);
-            x += barWidth + 1;
+            sCtx.fillRect(x, H - barH, barW, barH);
+            x += barW + 1;
             if(x > W) break;
         }
     }
 
-    function spawnNote(ratio, hue) {
-        const laneW = notesCanvas.width;
-        let width = laneW * (0.4 + (ratio * 0.5)); 
-        let color = `hsl(${hue}, 100%, 60%)`;
-
+    function spawnNote(heat, hue) {
+        const H = notesCanvas.height;
+        
+        // 激しい(Heatが高い)ほど、太いバーにする
+        let height = H * (0.3 + (heat * 0.6)); 
+        
         notes.push({
-            y: -30,
-            color: color,
-            width: width,
-            glow: ratio * 30
+            x: notesCanvas.width + 50, // 画面外(右)からスタート
+            y: (H - height) / 2,       // 上下中央
+            width: 20,                 // バーの幅
+            height: height,
+            color: `hsl(${hue}, 100%, 60%)`,
+            glow: heat * 20
         });
     }
 
     function drawNotes() {
         const W = notesCanvas.width; const H = notesCanvas.height;
-        const hitY = H * 0.8;
         nCtx.clearRect(0, 0, W, H);
+
+        // 判定ライン描画
+        const line = document.getElementById('hit-line');
 
         for (let i = notes.length - 1; i >= 0; i--) {
             const n = notes[i];
-            n.y += NOTE_FALL_SPEED;
+            
+            // 左へ移動
+            n.x -= NOTE_SPEED;
 
-            nCtx.shadowBlur = 15 + n.glow;
+            // 描画
+            nCtx.shadowBlur = 10 + n.glow;
             nCtx.shadowColor = n.color;
             nCtx.fillStyle = n.color;
             nCtx.globalAlpha = 0.9;
             
-            const x = (W - n.width) / 2;
             nCtx.beginPath();
-            nCtx.roundRect(x, n.y, n.width, 12, 6);
+            nCtx.roundRect(n.x, n.y, n.width, n.height, 4);
             nCtx.fill();
 
-            if (n.y > hitY && n.y < hitY + NOTE_FALL_SPEED + 5) {
-                const line = document.getElementById('hit-line');
+            // 判定ライン通過エフェクト (左端 HIT_X を通過した時)
+            if (n.x < HIT_X && n.x > HIT_X - NOTE_SPEED - 5) {
                 line.style.background = n.color;
-                line.style.boxShadow = `0 0 30px ${n.color}, 0 0 10px #fff`;
+                line.style.boxShadow = `0 0 30px ${n.color}`;
                 setTimeout(() => {
-                    line.style.background = 'rgba(255,255,255,0.5)';
-                    line.style.boxShadow = '0 0 15px #fff, 0 0 5px var(--neon-blue)';
-                }, 80);
+                    line.style.background = 'rgba(255,255,255,0.6)';
+                    line.style.boxShadow = '0 0 15px #fff';
+                }, 100);
             }
-            if (n.y > H + 50) notes.splice(i, 1);
+
+            // 画面外に出たら削除
+            if (n.x < -50) notes.splice(i, 1);
         }
         nCtx.shadowBlur = 0;
     }
