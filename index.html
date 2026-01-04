@@ -1,3 +1,172 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AV Cockpit Rhythm Final</title>
+<style>
+    /* === デザイン設定 === */
+    :root {
+        --bg-main: #050008;
+        --panel-bg: #100508;
+        --neon-pink: #ff0055;
+        --neon-blue: #00d2ff;
+        --neon-green: #00ff99;
+        --text-color: #eee;
+    }
+    body { background: var(--bg-main); margin: 0; overflow: hidden; font-family: 'Courier New', sans-serif; color: var(--text-color); user-select: none; }
+    
+    #container { display: flex; width: 100vw; height: 100vh; }
+
+    /* 左側：動画ステージ */
+    #video-stage {
+        flex: 1; position: relative; background: #000; overflow: hidden;
+        border-right: 4px solid var(--neon-pink);
+        box-shadow: 0 0 20px rgba(255, 0, 85, 0.3);
+    }
+    video { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+    
+    /* ガイド表示 */
+    .overlay-guide {
+        position: absolute; bottom: 20px; left: 0; width: 100%; 
+        text-align: center; color: rgba(255,255,255,0.4); font-size: 12px; pointer-events: none;
+        text-shadow: 0 0 5px #000;
+    }
+
+    /* 右側：コクピットパネル */
+    #cockpit-panel {
+        width: 340px; background: var(--panel-bg);
+        display: flex; flex-direction: column;
+        padding: 10px; box-sizing: border-box;
+        border-left: 1px solid rgba(255, 255, 255, 0.1);
+        z-index: 50;
+    }
+
+    .panel-section {
+        margin-bottom: 10px; border: 1px solid var(--neon-blue);
+        background: rgba(0, 20, 30, 0.6); padding: 8px; border-radius: 6px;
+        position: relative;
+    }
+    .title { font-size: 11px; color: var(--neon-blue); margin-bottom: 5px; letter-spacing: 1px; font-weight: bold; }
+
+    /* UIボタン */
+    .btn-group { display: flex; gap: 5px; }
+    .btn {
+        flex: 1; background: #222; border: 1px solid var(--neon-blue); color: #fff;
+        padding: 10px 0; border-radius: 4px; font-weight: bold; cursor: pointer; text-align: center;
+        transition: all 0.1s; font-size: 13px;
+    }
+    .btn-main { background: linear-gradient(135deg, var(--neon-pink), #aa0033); border: none; box-shadow: 0 0 10px var(--neon-pink); }
+    .btn-skip { background: #004455; border-color: var(--neon-blue); color: var(--neon-blue); }
+    .btn:active { transform: scale(0.96); filter: brightness(1.2); }
+    input[type="file"] { display: none; }
+
+    /* メーター類 */
+    #bpm-display { 
+        font-size: 24px; font-weight: bold; text-align: center; margin: 5px 0; 
+        color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green);
+    }
+    #bpm-sub { font-size: 10px; text-align: center; color: #888; }
+
+    /* ヒートゲージ */
+    .heat-container { width: 100%; height: 6px; background: #333; margin-top: 5px; border-radius: 3px; overflow: hidden; }
+    #heat-bar { width: 0%; height: 100%; background: linear-gradient(90deg, var(--neon-blue), var(--neon-pink)); transition: width 0.1s; }
+
+    /* 横スクロール・ノーツレーン */
+    #notes-lane-wrap {
+        flex: 1; position: relative; overflow: hidden;
+        background: linear-gradient(90deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 100%);
+        border-top: 2px solid var(--neon-blue);
+        border-bottom: 2px solid var(--neon-blue);
+        margin-bottom: 10px;
+    }
+    #notes-canvas { position: absolute; top:0; left:0; width:100%; height:100%; z-index: 10; }
+    
+    /* 判定ライン（左側に縦線） */
+    #hit-line {
+        position: absolute; top: 0; left: 60px; width: 4px; height: 100%;
+        background: rgba(255, 255, 255, 0.6); z-index: 5;
+        box-shadow: 0 0 15px #fff;
+    }
+
+    /* スペクトラム */
+    #spectrum-wrap {
+        height: 80px; position: relative; background: #000;
+        border: 1px solid #444; overflow: hidden;
+    }
+    #spectrum-canvas { width: 100%; height: 100%; }
+
+    /* 初期ロード画面 */
+    #init-screen {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 999;
+        background: rgba(0,0,0,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center;
+    }
+    .start-btn {
+        padding: 20px 60px; font-size: 24px; border-radius: 50px; margin-top: 30px; cursor: pointer;
+        background: var(--neon-pink); color: #fff; font-weight: bold; border: 2px solid #fff;
+        box-shadow: 0 0 30px var(--neon-pink); animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+</style>
+</head>
+<body>
+
+<div id="container">
+    <div id="video-stage">
+        <video id="mainVideo" playsinline crossorigin="anonymous"></video>
+        <div class="overlay-guide">Double Tap Video to Fullscreen Mode</div>
+    </div>
+
+    <div id="cockpit-panel">
+        
+        <div class="panel-section">
+            <div class="title">SYSTEM CONTROL</div>
+            <div class="btn-group">
+                <label class="btn btn-main">
+                    📂 ADD FILES
+                    <input type="file" id="subFileInput" multiple accept="video/*">
+                </label>
+                <button class="btn btn-skip" onclick="manualSkip()">SKIP ⏭</button>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <div class="title">ENGINE HEAT (INERTIA)</div>
+            <div id="bpm-display">IDLE</div>
+            <div id="bpm-sub">WAITING INPUT...</div>
+            <div class="heat-container">
+                <div id="heat-bar"></div>
+            </div>
+        </div>
+
+        <div class="panel-section" style="flex:1; display:flex; flex-direction:column; padding:0; border:none; background:none;">
+            <div class="title" style="padding-left:5px;">RHYTHM FLOW &gt;&gt;&gt;</div>
+            <div id="notes-lane-wrap">
+                <div id="hit-line"></div>
+                <canvas id="notes-canvas"></canvas>
+            </div>
+        </div>
+
+        <div class="panel-section" style="padding:5px;">
+            <div class="title">AUDIO VISUALIZER</div>
+            <div id="spectrum-wrap">
+                <canvas id="spectrum-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="init-screen">
+    <h1 style="color:var(--neon-pink); text-shadow:0 0 20px var(--neon-pink); font-size:40px; margin:0;">AV COCKPIT</h1>
+    <div style="color:var(--neon-blue); letter-spacing:4px; margin-bottom:20px;">FINAL EDITION</div>
+    
+    <label class="start-btn">
+        🚀 LAUNCH SYSTEM
+        <input type="file" id="mainFileInput" multiple accept="video/*">
+    </label>
+</div>
+
+<script>
 // === 設定パラメータ ===
     const INTERVAL_SLOW = 4000; // 最も遅い間隔
     const INTERVAL_FAST = 450;  // 最も速い間隔
@@ -248,3 +417,6 @@
         }
         nCtx.shadowBlur = 0;
     }
+</script>
+</body>
+</html>
