@@ -3,144 +3,172 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>AV Adaptive Metronome</title>
+<title>AV Cockpit Rhythm</title>
 <style>
-    body { background: #000; margin: 0; overflow: hidden; font-family: sans-serif; color: #fff; }
+    /* === ネオン・サイバーパンク デザイン設定 === */
+    :root {
+        --bg-main: #050008;
+        --panel-bg: rgba(20, 0, 10, 0.9);
+        --neon-pink: #ff0055;
+        --neon-blue: #00d2ff;
+        --text-color: #eee;
+    }
+    body { background: var(--bg-main); margin: 0; overflow: hidden; font-family: 'Courier New', sans-serif; color: var(--text-color); }
     
-    #stage { 
-        position: relative; width: 100vw; height: 100vh; 
-        display: flex; justify-content: center; align-items: center;
-        background: #000;
-    }
-    
-    video { 
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-        object-fit: contain; opacity: 0.6;
+    /* 全体レイアウト（左右分割） */
+    #container {
+        display: flex; width: 100vw; height: 100vh;
     }
 
-    canvas { 
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-        z-index: 10; pointer-events: none; 
+    /* 左側：動画エリア */
+    #video-stage {
+        flex: 1; position: relative; background: #000; overflow: hidden;
+        border-right: 3px solid var(--neon-pink);
+        box-shadow: 0 0 20px var(--neon-pink);
+    }
+    video { width: 100%; height: 100%; object-fit: contain; }
+
+    /* 右側：コクピットパネル */
+    #cockpit-panel {
+        width: 320px; background: var(--panel-bg);
+        display: flex; flex-direction: column;
+        padding: 15px; box-sizing: border-box;
+        border-left: 2px solid rgba(255, 0, 85, 0.3);
     }
 
-    #hit-line {
-        position: absolute; bottom: 15%; left: 0; width: 100%; height: 4px;
-        background: rgba(255, 255, 255, 0.2); z-index: 5;
-        box-shadow: 0 0 5px rgba(255,255,255,0.3);
+    /* パネル内の各セクション */
+    .panel-section {
+        margin-bottom: 15px; border: 1px solid var(--neon-blue);
+        background: rgba(0, 20, 30, 0.5); padding: 10px; border-radius: 8px;
+        position: relative;
     }
-    
-    /* ステータス表示（デバッグ兼） */
-    #status-overlay {
-        position: absolute; top: 10px; left: 10px; z-index: 20;
-        font-size: 10px; color: #00ff00; font-family: monospace;
-        background: rgba(0,0,0,0.5); padding: 5px; pointer-events: none;
+    .section-title {
+        font-size: 12px; color: var(--neon-blue); margin-bottom: 5px;
+        text-transform: uppercase; letter-spacing: 1px;
     }
 
-    /* 速度インジケータ */
-    #bpm-indicator {
-        position: absolute; bottom: 17%; right: 10px; 
-        font-size: 16px; font-weight: bold; color: #00d2ff;
-        text-shadow: 0 0 5px #000; z-index: 20;
-        text-align: right;
-    }
-
-    #ui-panel {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0,0,0,0.85); z-index: 100;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-    }
-    #ui-panel.hidden { opacity: 0; pointer-events: none; transition: opacity 0.5s; }
-
+    /* 1. 上部UI */
     .file-btn {
-        background: linear-gradient(135deg, #00d2ff, #3a7bd5);
-        border: 1px solid #00d2ff;
-        color: white; padding: 15px 40px; border-radius: 50px; 
-        font-weight: bold; font-size: 18px; cursor: pointer; margin-bottom: 20px;
-        box-shadow: 0 0 15px #00d2ff;
+        background: linear-gradient(45deg, var(--neon-pink), #5500ff);
+        border: 1px solid var(--text-color);
+        color: white; padding: 10px; border-radius: 4px; 
+        font-weight: bold; font-size: 14px; cursor: pointer; display: block; text-align: center;
+        box-shadow: 0 0 10px var(--neon-pink); text-shadow: 0 0 5px #fff;
     }
     input[type="file"] { display: none; }
     
-    #skip-btn {
-        position: absolute; top: 20px; right: 20px; z-index: 50;
-        background: rgba(255,255,255,0.2); border: 1px solid #fff; color: #fff;
-        width: 60px; height: 60px; border-radius: 50%; cursor: pointer; display: none;
+    #bpm-meter { font-size: 20px; font-weight: bold; color: var(--neon-pink); text-shadow: 0 0 10px var(--neon-pink); text-align: center; }
+    #bpm-label { font-size: 10px; color: #aaa; text-align: center; }
+
+    /* 2. 中央：ノーツ落下レーン */
+    #notes-lane-wrap {
+        flex: 1; /* 残りの高さを占有 */
+        position: relative; overflow: hidden;
+        border: 2px solid var(--neon-blue);
+        background: rgba(0,0,0,0.3);
+        box-shadow: inset 0 0 20px var(--neon-blue);
+    }
+    #notes-canvas { position: absolute; top:0; left:0; width:100%; height:100%; z-index: 10; }
+    #hit-line {
+        position: absolute; bottom: 20%; left: 0; width: 100%; height: 4px;
+        background: rgba(255, 255, 255, 0.5); z-index: 5;
+        box-shadow: 0 0 15px #fff, 0 0 5px var(--neon-blue);
+    }
+
+    /* 3. 下部：スペクトラムアナライザ */
+    #spectrum-wrap {
+        height: 150px; position: relative;
+        border: 2px solid var(--neon-pink); overflow: hidden;
+        background: #000;
+        box-shadow: inset 0 0 15px var(--neon-pink);
+    }
+    #spectrum-canvas { position: absolute; top:0; left:0; width:100%; height:100%; }
+    
+    /* 初期オーバーレイ */
+    #init-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 999;
+        background: rgba(0,0,0,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center;
     }
 </style>
 </head>
 <body>
 
-<div id="stage">
-    <video id="mainVideo" playsinline crossorigin="anonymous"></video>
-    <div id="hit-line"></div>
-    <canvas id="visualizer"></canvas>
-    
-    <div id="status-overlay">
-        Adaptive Gain Control:<br>
-        Cur: <span id="debug-cur">0</span><br>
-        Min: <span id="debug-min">0</span><br>
-        Max: <span id="debug-max">0</span>
+<div id="container">
+    <div id="video-stage">
+        <video id="mainVideo" playsinline crossorigin="anonymous"></video>
     </div>
 
-    <div id="bpm-indicator">INITIALIZING...</div>
-    <button id="skip-btn" onclick="playNext()">SKIP</button>
+    <div id="cockpit-panel">
+        
+        <div class="panel-section">
+            <div class="section-title">System Control</div>
+            <label class="file-btn">
+                📂 LOAD FOLDER
+                <input type="file" id="fileInput" multiple accept="video/*">
+            </label>
+        </div>
+
+        <div class="panel-section">
+            <div class="section-title">Rhythm Engine</div>
+            <div id="bpm-meter">READY</div>
+            <div id="bpm-label">INTERVAL TIME</div>
+        </div>
+
+        <div class="panel-section" style="flex:1; display:flex; flex-direction:column; padding:5px;">
+            <div class="section-title">STROKE GUIDE</div>
+            <div id="notes-lane-wrap">
+                <div id="hit-line"></div>
+                <canvas id="notes-canvas"></canvas>
+            </div>
+        </div>
+
+        <div class="panel-section" style="padding:5px;">
+            <div class="section-title">AUDIO SPECTRUM</div>
+            <div id="spectrum-wrap">
+                <canvas id="spectrum-canvas"></canvas>
+            </div>
+        </div>
+
+    </div>
 </div>
 
-<div id="ui-panel">
-    <h1 style="color:#00d2ff; text-shadow:0 0 10px #00d2ff;">ADAPTIVE RHYTHM</h1>
-    <label class="file-btn">
-        📂 動画フォルダを選択
-        <input type="file" id="fileInput" multiple accept="video/*">
-    </label>
-    <div style="color:#aaa; font-size:12px; margin-top:10px;">
-        Auto-Normalizing Volume<br>
-        Slow: 5000ms <-> Fast: 500ms
-    </div>
+<div id="init-overlay">
+    <h1 style="color:var(--neon-pink); text-shadow:0 0 20px var(--neon-pink);">AV COCKPIT RHYTHM</h1>
+    <p>Please load video folder from the right panel.</p>
 </div>
 
 <script>
     // === 設定 ===
-    const INTERVAL_SLOW = 5000; // 最遅 (ms)
-    const INTERVAL_FAST = 500;  // 最速 (ms)
-    const NOTE_FALL_SPEED = 8;
-    
-    // クルーズ設定
-    const CRUISE_MIN_SEC = 120; // 2分
-    const CRUISE_MAX_SEC = 240; // 4分
+    const INTERVAL_SLOW = 5000; const INTERVAL_FAST = 500;
+    const NOTE_FALL_SPEED = 6;
+    const CRUISE_MIN_SEC = 120; const CRUISE_MAX_SEC = 240;
 
-    // === システム変数 ===
+    // === DOM ===
     const video = document.getElementById('mainVideo');
-    const canvas = document.getElementById('visualizer');
-    const ctx = canvas.getContext('2d');
-    const bpmText = document.getElementById('bpm-indicator');
-    
-    // デバッグ表示用
-    const dbgCur = document.getElementById('debug-cur');
-    const dbgMin = document.getElementById('debug-min');
-    const dbgMax = document.getElementById('debug-max');
+    const notesCanvas = document.getElementById('notes-canvas');
+    const specCanvas = document.getElementById('spectrum-canvas');
+    const nCtx = notesCanvas.getContext('2d');
+    const sCtx = specCanvas.getContext('2d');
+    const bpmMeter = document.getElementById('bpm-meter');
+    const initOverlay = document.getElementById('init-overlay');
 
+    // === 変数 ===
     let playlist = [];
     let audioCtx, analyser, sourceNode;
     let notes = [];
     let cruiseTimer = null;
-
-    // メトロノーム制御
     let nextNoteTime = 0;
     let currentInterval = 2000;
+    // 自動正規化用
+    let dynamicMin = 100; let dynamicMax = 150;
 
-    // ★自動正規化用の変数★
-    let dynamicMin = 255; // 初期値は逆に設定してすぐ上書きさせる
-    let dynamicMax = 0;
-    
-    // 初期化
+    // === 初期化 ===
     document.getElementById('fileInput').addEventListener('change', (e) => {
         playlist = Array.from(e.target.files);
         if (playlist.length === 0) return;
         shuffleArray(playlist);
         initAudio();
-
-        document.getElementById('ui-panel').classList.add('hidden');
-        document.getElementById('skip-btn').style.display = 'block';
-        
+        initOverlay.style.display = 'none';
         playNext();
         requestAnimationFrame(renderLoop);
     });
@@ -150,8 +178,8 @@
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         audioCtx = new AudioContext();
         analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 512;
-        analyser.smoothingTimeConstant = 0.8; 
+        analyser.fftSize = 1024; // スペクトラム用に細かく
+        analyser.smoothingTimeConstant = 0.85;
         sourceNode = audioCtx.createMediaElementSource(video);
         sourceNode.connect(analyser);
         analyser.connect(audioCtx.destination);
@@ -167,148 +195,149 @@
     function playNext() {
         if(playlist.length === 0) return;
         if(cruiseTimer) clearTimeout(cruiseTimer);
-
         const file = playlist.shift();
         playlist.push(file);
 
-        // 動画切り替え時に Min/Max をリセット（新しい動画の音量に合わせるため）
-        dynamicMin = 100; // 適当な中間値からスタート
-        dynamicMax = 150; 
-        currentInterval = 2000;
-
+        // 動画切り替え時リセット
+        dynamicMin = 80; dynamicMax = 120; currentInterval = 2000;
         video.src = URL.createObjectURL(file);
         video.play().catch(()=>{});
-
-        // 本番箇所へジャンプ (30%〜80%)
-        video.onloadedmetadata = () => {
-             video.currentTime = video.duration * (0.3 + Math.random() * 0.5);
-        };
-
+        video.onloadedmetadata = () => { video.currentTime = video.duration * (0.3 + Math.random() * 0.5); };
+        
         const duration = (CRUISE_MIN_SEC + Math.random() * (CRUISE_MAX_SEC - CRUISE_MIN_SEC)) * 1000;
         cruiseTimer = setTimeout(playNext, duration);
     }
 
+    // === メイン描画ループ ===
     function renderLoop() {
         requestAnimationFrame(renderLoop);
-        
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        const W = canvas.width;
-        const H = canvas.height;
-        const hitY = H * 0.85;
-
-        ctx.clearRect(0, 0, W, H);
         if(!analyser) return;
 
-        // 1. 現在の音量エネルギー取得 (0-255)
+        // --- オーディオデータ取得 ---
         const bufferLength = analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
-        analyser.getByteFrequencyData(dataArray);
+        analyser.getByteFrequencyData(dataArray); // スペクトラム用
 
+        // --- 1. スペクトラム描画 ---
+        drawSpectrum(dataArray, bufferLength);
+
+        // --- 2. 音量エネルギー計算 (ノーツ用) ---
         let energy = 0;
-        // 低音〜中音域 (声の帯域) を重点評価
-        const range = Math.floor(bufferLength * 0.6); 
-        for(let i = 0; i < range; i++) {
-            energy += dataArray[i];
-        }
+        // 低〜中音域の平均
+        const range = Math.floor(bufferLength * 0.4); 
+        for(let i = 0; i < range; i++) energy += dataArray[i];
         energy = energy / range;
 
-        // ★自動正規化ロジック (Adaptive Gain Control)★
-        
-        // 極端な静寂(ノイズ)は無視
-        if (energy > 5) {
-            // Min/Maxの更新
-            // 急激に広がるが、ゆっくり狭まる（シーン転換への追従）
-            if (energy < dynamicMin) dynamicMin = energy;
-            else dynamicMin += 0.05; // ゆっくり上昇させて「今の静寂」に合わせる
-
-            if (energy > dynamicMax) dynamicMax = energy;
-            else dynamicMax -= 0.1;  // ゆっくり下降させて「今の最大」に合わせる
-            
-            // 安全装置（MinとMaxが近づきすぎないように）
-            if (dynamicMax - dynamicMin < 20) dynamicMax = dynamicMin + 20;
+        // --- 3. 自動正規化 & インターバル計算 ---
+        if (energy > 10) { // ノイズカット
+            // ゆっくり追従
+            if (energy < dynamicMin) dynamicMin = energy; else dynamicMin += 0.1;
+            if (energy > dynamicMax) dynamicMax = energy; else dynamicMax -= 0.2;
+            if (dynamicMax - dynamicMin < 30) dynamicMax = dynamicMin + 30; // 最低レンジ保証
         }
-
-        // 2. 正規化 (0.0 〜 1.0) の計算
-        // 今の音が、現在のMin-Maxレンジのどこにいるか？
         let ratio = (energy - dynamicMin) / (dynamicMax - dynamicMin);
-        
-        // クランプ処理
-        if (ratio < 0) ratio = 0;
-        if (ratio > 1) ratio = 1;
+        if (ratio < 0) ratio = 0; if (ratio > 1) ratio = 1;
 
-        // デバッグ表示
-        dbgCur.innerText = energy.toFixed(1);
-        dbgMin.innerText = dynamicMin.toFixed(1);
-        dbgMax.innerText = dynamicMax.toFixed(1);
-
-        // 3. インターバル計算
         const targetInterval = INTERVAL_SLOW - (ratio * (INTERVAL_SLOW - INTERVAL_FAST));
-        
-        // 変化をなめらかに
         currentInterval = currentInterval * 0.9 + targetInterval * 0.1;
 
-        // UI表示
+        // UI更新
         const percent = Math.round(ratio * 100);
-        bpmText.innerHTML = `<span style="font-size:0.7em">INT:</span> ${(currentInterval/1000).toFixed(2)}s<br>LV: ${percent}%`;
-        
-        // 色を変える
-        const hue = 200 + (ratio * 160); // 青(200) -> 赤(360)
-        bpmText.style.color = `hsl(${hue}, 100%, 70%)`;
+        bpmMeter.innerText = `${(currentInterval/1000).toFixed(2)}s / LV.${percent}`;
+        const hue = 180 + (ratio * 180); // 青->赤
+        bpmMeter.style.color = `hsl(${hue}, 100%, 60%)`;
+        bpmMeter.style.textShadow = `0 0 15px hsl(${hue}, 100%, 50%)`;
 
-        // 4. ノーツ生成
+        // --- 4. ノーツ生成 & 描画 ---
         const now = Date.now();
         if (now > nextNoteTime) {
-            spawnNote(ratio, W, hue);
+            spawnNote(ratio, hue);
             nextNoteTime = now + currentInterval;
         }
-
-        updateNotes(W, H, hitY);
+        drawNotes();
     }
 
-    function spawnNote(ratio, screenW, hue) {
-        // 正規化された ratio (0.0~1.0) に基づいて見た目を決定
-        // これにより「相対的に激しいシーン」は必ず赤く太くなる
+    // === スペクトラム描画関数 ===
+    function drawSpectrum(data, bufferLen) {
+        // キャンバスサイズ合わせ
+        const wrap = specCanvas.parentElement;
+        specCanvas.width = wrap.clientWidth; specCanvas.height = wrap.clientHeight;
+        const W = specCanvas.width; const H = specCanvas.height;
+        sCtx.clearRect(0, 0, W, H);
+
+        const barWidth = (W / bufferLen) * 2.5;
+        let barHeight;
+        let x = 0;
+
+        for(let i = 0; i < bufferLen; i++) {
+            barHeight = data[i] / 255 * H;
+            
+            // ネオンカラーのグラデーション
+            const hue = i / bufferLen * 360; // 虹色
+            sCtx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+            sCtx.shadowBlur = 10;
+            sCtx.shadowColor = `hsl(${hue}, 100%, 50%)`;
+
+            // 下から生えるバー
+            sCtx.fillRect(x, H - barHeight, barWidth, barHeight);
+            x += barWidth + 1;
+            if(x > W) break;
+        }
+        sCtx.shadowBlur = 0;
+    }
+
+    // === ノーツ処理 ===
+    function spawnNote(ratio, hue) {
+        // レーンの幅を取得
+        const laneW = notesCanvas.parentElement.clientWidth;
         
-        let width = screenW * (0.3 + (ratio * 0.6)); // 30% 〜 90% 幅
-        let color = `hsl(${hue}, 100%, 50%)`;
+        // 激しいほど太く、赤く
+        let width = laneW * (0.4 + (ratio * 0.5)); 
+        let color = `hsl(${hue}, 100%, 60%)`;
 
         notes.push({
-            y: -50,
+            y: -30,
             color: color,
             width: width,
-            shadow: ratio * 40
+            glow: ratio * 30
         });
     }
 
-    function updateNotes(W, H, hitY) {
+    function drawNotes() {
+        const wrap = notesCanvas.parentElement;
+        notesCanvas.width = wrap.clientWidth; notesCanvas.height = wrap.clientHeight;
+        const W = notesCanvas.width; const H = notesCanvas.height;
+        const hitY = H * 0.8; // 判定ライン位置（CSSと合わせる）
+        nCtx.clearRect(0, 0, W, H);
+
         for (let i = notes.length - 1; i >= 0; i--) {
             const n = notes[i];
             n.y += NOTE_FALL_SPEED;
 
-            ctx.shadowBlur = 10 + n.shadow;
-            ctx.shadowColor = n.color;
-            ctx.fillStyle = n.color;
-            ctx.globalAlpha = 0.8;
+            // ネオン発光描画
+            nCtx.shadowBlur = 15 + n.glow;
+            nCtx.shadowColor = n.color;
+            nCtx.fillStyle = n.color;
+            nCtx.globalAlpha = 0.9;
             
             const x = (W - n.width) / 2;
-            ctx.beginPath();
-            ctx.roundRect(x, n.y, n.width, 15, 8);
-            ctx.fill();
+            nCtx.beginPath();
+            nCtx.roundRect(x, n.y, n.width, 12, 6);
+            nCtx.fill();
 
+            // 判定ライン通過エフェクト
             if (n.y > hitY && n.y < hitY + NOTE_FALL_SPEED + 5) {
                 const line = document.getElementById('hit-line');
                 line.style.background = n.color;
-                line.style.boxShadow = `0 0 40px ${n.color}`;
+                line.style.boxShadow = `0 0 30px ${n.color}, 0 0 10px #fff`;
                 setTimeout(() => {
-                    line.style.background = 'rgba(255,255,255,0.2)';
-                    line.style.boxShadow = '0 0 5px rgba(255,255,255,0.3)';
-                }, 100);
+                    line.style.background = 'rgba(255,255,255,0.5)';
+                    line.style.boxShadow = '0 0 15px #fff, 0 0 5px var(--neon-blue)';
+                }, 80);
             }
-
-            if (n.y > H) notes.splice(i, 1);
+            if (n.y > H + 50) notes.splice(i, 1);
         }
-        ctx.shadowBlur = 0;
+        nCtx.shadowBlur = 0;
     }
 </script>
 </body>
