@@ -8,7 +8,7 @@
     /* === ネオン・サイバーパンク デザイン設定 === */
     :root {
         --bg-main: #050008;
-        --panel-bg: rgba(20, 0, 10, 0.9);
+        --panel-bg: rgba(20, 0, 10, 0.95);
         --neon-pink: #ff0055;
         --neon-blue: #00d2ff;
         --text-color: #eee;
@@ -34,6 +34,7 @@
         display: flex; flex-direction: column;
         padding: 15px; box-sizing: border-box;
         border-left: 2px solid rgba(255, 0, 85, 0.3);
+        z-index: 50; /* 動画より上 */
     }
 
     /* パネル内の各セクション */
@@ -47,7 +48,7 @@
         text-transform: uppercase; letter-spacing: 1px;
     }
 
-    /* 1. 上部UI */
+    /* UIボタン共通 */
     .file-btn {
         background: linear-gradient(45deg, var(--neon-pink), #5500ff);
         border: 1px solid var(--text-color);
@@ -55,15 +56,15 @@
         font-weight: bold; font-size: 14px; cursor: pointer; display: block; text-align: center;
         box-shadow: 0 0 10px var(--neon-pink); text-shadow: 0 0 5px #fff;
     }
+    .file-btn:active { transform: scale(0.98); }
     input[type="file"] { display: none; }
     
     #bpm-meter { font-size: 20px; font-weight: bold; color: var(--neon-pink); text-shadow: 0 0 10px var(--neon-pink); text-align: center; }
     #bpm-label { font-size: 10px; color: #aaa; text-align: center; }
 
-    /* 2. 中央：ノーツ落下レーン */
+    /* 中央：ノーツ落下レーン */
     #notes-lane-wrap {
-        flex: 1; /* 残りの高さを占有 */
-        position: relative; overflow: hidden;
+        flex: 1; position: relative; overflow: hidden;
         border: 2px solid var(--neon-blue);
         background: rgba(0,0,0,0.3);
         box-shadow: inset 0 0 20px var(--neon-blue);
@@ -75,7 +76,7 @@
         box-shadow: 0 0 15px #fff, 0 0 5px var(--neon-blue);
     }
 
-    /* 3. 下部：スペクトラムアナライザ */
+    /* 下部：スペクトラム */
     #spectrum-wrap {
         height: 150px; position: relative;
         border: 2px solid var(--neon-pink); overflow: hidden;
@@ -84,11 +85,20 @@
     }
     #spectrum-canvas { position: absolute; top:0; left:0; width:100%; height:100%; }
     
-    /* 初期オーバーレイ */
+    /* 初期オーバーレイ（修正：ここにボタンを置く） */
     #init-overlay {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 999;
-        background: rgba(0,0,0,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center;
+        background: rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center;
     }
+    
+    /* スタートボタン（特大） */
+    .start-btn-large {
+        padding: 20px 50px; font-size: 24px; border-radius: 50px; margin-top: 30px;
+        background: linear-gradient(90deg, #ff0055, #ff00aa);
+        box-shadow: 0 0 30px #ff0055;
+        border: 2px solid #fff; animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0% { box-shadow: 0 0 20px #ff0055; } 50% { box-shadow: 0 0 50px #ff0055; } 100% { box-shadow: 0 0 20px #ff0055; } }
 </style>
 </head>
 <body>
@@ -103,8 +113,8 @@
         <div class="panel-section">
             <div class="section-title">System Control</div>
             <label class="file-btn">
-                📂 LOAD FOLDER
-                <input type="file" id="fileInput" multiple accept="video/*">
+                📂 ADD FILES
+                <input type="file" id="subFileInput" multiple accept="video/*">
             </label>
         </div>
 
@@ -133,8 +143,15 @@
 </div>
 
 <div id="init-overlay">
-    <h1 style="color:var(--neon-pink); text-shadow:0 0 20px var(--neon-pink);">AV COCKPIT RHYTHM</h1>
-    <p>Please load video folder from the right panel.</p>
+    <h1 style="color:var(--neon-pink); text-shadow:0 0 20px var(--neon-pink); font-size:40px; margin:0;">AV COCKPIT</h1>
+    <h2 style="color:var(--neon-blue); margin-top:0;">RHYTHM SYNC SYSTEM</h2>
+    
+    <label class="file-btn start-btn-large">
+        🚀 START SYSTEM
+        <input type="file" id="mainFileInput" multiple accept="video/*">
+    </label>
+    
+    <p style="color:#888; margin-top:20px;">Select Video Folder to Launch</p>
 </div>
 
 <script>
@@ -159,26 +176,38 @@
     let cruiseTimer = null;
     let nextNoteTime = 0;
     let currentInterval = 2000;
-    // 自動正規化用
     let dynamicMin = 100; let dynamicMax = 150;
 
-    // === 初期化 ===
-    document.getElementById('fileInput').addEventListener('change', (e) => {
-        playlist = Array.from(e.target.files);
-        if (playlist.length === 0) return;
+    // === イベントリスナー (メイン開始ボタン) ===
+    document.getElementById('mainFileInput').addEventListener('change', handleFileSelect);
+    // サブの追加ボタン
+    document.getElementById('subFileInput').addEventListener('change', handleFileSelect);
+
+    function handleFileSelect(e) {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+        
+        // プレイリストに追加
+        playlist = playlist.concat(files);
         shuffleArray(playlist);
+        
+        // AudioContextの起動 (ユーザー操作内で行う必要あり)
         initAudio();
-        initOverlay.style.display = 'none';
-        playNext();
-        requestAnimationFrame(renderLoop);
-    });
+
+        // 最初のロードなら画面遷移
+        if (initOverlay.style.display !== 'none') {
+            initOverlay.style.display = 'none';
+            playNext();
+            requestAnimationFrame(renderLoop);
+        }
+    }
 
     function initAudio() {
         if(audioCtx) return;
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         audioCtx = new AudioContext();
         analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 1024; // スペクトラム用に細かく
+        analyser.fftSize = 1024;
         analyser.smoothingTimeConstant = 0.85;
         sourceNode = audioCtx.createMediaElementSource(video);
         sourceNode.connect(analyser);
@@ -195,14 +224,21 @@
     function playNext() {
         if(playlist.length === 0) return;
         if(cruiseTimer) clearTimeout(cruiseTimer);
+        
+        // 次の動画へ（無限ループ用に配列操作）
         const file = playlist.shift();
         playlist.push(file);
 
         // 動画切り替え時リセット
         dynamicMin = 80; dynamicMax = 120; currentInterval = 2000;
+        
         video.src = URL.createObjectURL(file);
-        video.play().catch(()=>{});
-        video.onloadedmetadata = () => { video.currentTime = video.duration * (0.3 + Math.random() * 0.5); };
+        video.play().catch(e => console.log("Auto-play prevented", e));
+        
+        // 見どころから開始
+        video.onloadedmetadata = () => { 
+            video.currentTime = video.duration * (0.3 + Math.random() * 0.5); 
+        };
         
         const duration = (CRUISE_MIN_SEC + Math.random() * (CRUISE_MAX_SEC - CRUISE_MIN_SEC)) * 1000;
         cruiseTimer = setTimeout(playNext, duration);
@@ -213,27 +249,34 @@
         requestAnimationFrame(renderLoop);
         if(!analyser) return;
 
-        // --- オーディオデータ取得 ---
+        // キャンバスサイズ調整
+        const noteWrap = notesCanvas.parentElement;
+        notesCanvas.width = noteWrap.clientWidth; 
+        notesCanvas.height = noteWrap.clientHeight;
+        
+        const specWrap = specCanvas.parentElement;
+        specCanvas.width = specWrap.clientWidth;
+        specCanvas.height = specWrap.clientHeight;
+
+        // オーディオデータ取得
         const bufferLength = analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
-        analyser.getByteFrequencyData(dataArray); // スペクトラム用
+        analyser.getByteFrequencyData(dataArray);
 
-        // --- 1. スペクトラム描画 ---
+        // 1. スペクトラム描画
         drawSpectrum(dataArray, bufferLength);
 
-        // --- 2. 音量エネルギー計算 (ノーツ用) ---
+        // 2. エネルギー計算
         let energy = 0;
-        // 低〜中音域の平均
         const range = Math.floor(bufferLength * 0.4); 
         for(let i = 0; i < range; i++) energy += dataArray[i];
         energy = energy / range;
 
-        // --- 3. 自動正規化 & インターバル計算 ---
-        if (energy > 10) { // ノイズカット
-            // ゆっくり追従
+        // 3. 自動正規化 & インターバル計算
+        if (energy > 10) { 
             if (energy < dynamicMin) dynamicMin = energy; else dynamicMin += 0.1;
             if (energy > dynamicMax) dynamicMax = energy; else dynamicMax -= 0.2;
-            if (dynamicMax - dynamicMin < 30) dynamicMax = dynamicMin + 30; // 最低レンジ保証
+            if (dynamicMax - dynamicMin < 30) dynamicMax = dynamicMin + 30; 
         }
         let ratio = (energy - dynamicMin) / (dynamicMax - dynamicMin);
         if (ratio < 0) ratio = 0; if (ratio > 1) ratio = 1;
@@ -241,14 +284,14 @@
         const targetInterval = INTERVAL_SLOW - (ratio * (INTERVAL_SLOW - INTERVAL_FAST));
         currentInterval = currentInterval * 0.9 + targetInterval * 0.1;
 
-        // UI更新
+        // メーター更新
         const percent = Math.round(ratio * 100);
         bpmMeter.innerText = `${(currentInterval/1000).toFixed(2)}s / LV.${percent}`;
-        const hue = 180 + (ratio * 180); // 青->赤
+        const hue = 180 + (ratio * 180); 
         bpmMeter.style.color = `hsl(${hue}, 100%, 60%)`;
         bpmMeter.style.textShadow = `0 0 15px hsl(${hue}, 100%, 50%)`;
 
-        // --- 4. ノーツ生成 & 描画 ---
+        // 4. ノーツ生成
         const now = Date.now();
         if (now > nextNoteTime) {
             spawnNote(ratio, hue);
@@ -257,41 +300,25 @@
         drawNotes();
     }
 
-    // === スペクトラム描画関数 ===
     function drawSpectrum(data, bufferLen) {
-        // キャンバスサイズ合わせ
-        const wrap = specCanvas.parentElement;
-        specCanvas.width = wrap.clientWidth; specCanvas.height = wrap.clientHeight;
         const W = specCanvas.width; const H = specCanvas.height;
         sCtx.clearRect(0, 0, W, H);
 
         const barWidth = (W / bufferLen) * 2.5;
-        let barHeight;
         let x = 0;
 
         for(let i = 0; i < bufferLen; i++) {
-            barHeight = data[i] / 255 * H;
-            
-            // ネオンカラーのグラデーション
-            const hue = i / bufferLen * 360; // 虹色
+            const barHeight = data[i] / 255 * H;
+            const hue = i / bufferLen * 360; 
             sCtx.fillStyle = `hsl(${hue}, 100%, 50%)`;
-            sCtx.shadowBlur = 10;
-            sCtx.shadowColor = `hsl(${hue}, 100%, 50%)`;
-
-            // 下から生えるバー
             sCtx.fillRect(x, H - barHeight, barWidth, barHeight);
             x += barWidth + 1;
             if(x > W) break;
         }
-        sCtx.shadowBlur = 0;
     }
 
-    // === ノーツ処理 ===
     function spawnNote(ratio, hue) {
-        // レーンの幅を取得
-        const laneW = notesCanvas.parentElement.clientWidth;
-        
-        // 激しいほど太く、赤く
+        const laneW = notesCanvas.width;
         let width = laneW * (0.4 + (ratio * 0.5)); 
         let color = `hsl(${hue}, 100%, 60%)`;
 
@@ -304,17 +331,14 @@
     }
 
     function drawNotes() {
-        const wrap = notesCanvas.parentElement;
-        notesCanvas.width = wrap.clientWidth; notesCanvas.height = wrap.clientHeight;
         const W = notesCanvas.width; const H = notesCanvas.height;
-        const hitY = H * 0.8; // 判定ライン位置（CSSと合わせる）
+        const hitY = H * 0.8;
         nCtx.clearRect(0, 0, W, H);
 
         for (let i = notes.length - 1; i >= 0; i--) {
             const n = notes[i];
             n.y += NOTE_FALL_SPEED;
 
-            // ネオン発光描画
             nCtx.shadowBlur = 15 + n.glow;
             nCtx.shadowColor = n.color;
             nCtx.fillStyle = n.color;
@@ -325,7 +349,6 @@
             nCtx.roundRect(x, n.y, n.width, 12, 6);
             nCtx.fill();
 
-            // 判定ライン通過エフェクト
             if (n.y > hitY && n.y < hitY + NOTE_FALL_SPEED + 5) {
                 const line = document.getElementById('hit-line');
                 line.style.background = n.color;
