@@ -3,100 +3,84 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>AV Cockpit Rhythm Final</title>
+<title>AV Cockpit Motion Sense</title>
 <style>
     /* === デザイン設定 === */
     :root {
         --bg-main: #050008;
-        --panel-bg: #100508;
+        --panel-bg: #0a0a0a;
         --neon-pink: #ff0055;
         --neon-blue: #00d2ff;
         --neon-green: #00ff99;
+        --neon-yellow: #ffcc00;
         --text-color: #eee;
     }
     body { background: var(--bg-main); margin: 0; overflow: hidden; font-family: 'Courier New', sans-serif; color: var(--text-color); user-select: none; }
     
-    #container { display: flex; width: 100vw; height: 100vh; }
+    #container { display: flex; flex-direction: column; width: 100vw; height: 100vh; }
 
-    /* 左側：動画ステージ */
+    /* === 上部エリア：動画ステージ === */
     #video-stage {
         flex: 1; position: relative; background: #000; overflow: hidden;
-        border-right: 4px solid var(--neon-pink);
-        box-shadow: 0 0 20px rgba(255, 0, 85, 0.3);
+        display: flex; justify-content: flex-start; align-items: flex-start; padding: 10px;
     }
-    video { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+    video {
+        width: auto; height: auto; max-width: 100%; max-height: 100%;
+        aspect-ratio: 16 / 9; box-shadow: 5px 5px 20px rgba(0, 210, 255, 0.2);
+        border: 1px solid #333;
+    }
     
-    /* ガイド表示 */
-    .overlay-guide {
-        position: absolute; bottom: 20px; left: 0; width: 100%; 
-        text-align: center; color: rgba(255,255,255,0.4); font-size: 12px; pointer-events: none;
-        text-shadow: 0 0 5px #000;
+    /* === 下部エリア：コントロールデッキ === */
+    #bottom-deck {
+        height: 220px; background: var(--panel-bg);
+        border-top: 2px solid var(--neon-pink);
+        display: flex; flex-direction: column; z-index: 50;
     }
 
-    /* 右側：コクピットパネル */
-    #cockpit-panel {
-        width: 340px; background: var(--panel-bg);
-        display: flex; flex-direction: column;
-        padding: 10px; box-sizing: border-box;
-        border-left: 1px solid rgba(255, 255, 255, 0.1);
-        z-index: 50;
+    /* ノーツレーン */
+    #lane-section {
+        flex: 1; position: relative;
+        background: linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(20,0,10,0.5) 100%);
+        border-bottom: 1px solid var(--neon-blue); overflow: hidden;
+    }
+    #notes-canvas { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+    #hit-line {
+        position: absolute; top: 0; left: 80px; width: 4px; height: 100%;
+        background: rgba(255, 255, 255, 0.5); box-shadow: 0 0 10px #fff; z-index: 5;
     }
 
-    .panel-section {
-        margin-bottom: 10px; border: 1px solid var(--neon-blue);
-        background: rgba(0, 20, 30, 0.6); padding: 8px; border-radius: 6px;
-        position: relative;
+    /* 操作パネル */
+    #control-bar {
+        height: 90px; display: flex; gap: 10px; padding: 10px; box-sizing: border-box; background: #111;
     }
-    .title { font-size: 11px; color: var(--neon-blue); margin-bottom: 5px; letter-spacing: 1px; font-weight: bold; }
+    .c-block {
+        background: rgba(255,255,255,0.05); border: 1px solid #333;
+        border-radius: 4px; padding: 5px; display: flex; flex-direction: column; justify-content: center;
+    }
 
-    /* UIボタン */
-    .btn-group { display: flex; gap: 5px; }
+    .block-btns { flex: 0 0 180px; gap: 5px; }
+    .btn-row { display: flex; gap: 5px; flex: 1; }
     .btn {
         flex: 1; background: #222; border: 1px solid var(--neon-blue); color: #fff;
-        padding: 10px 0; border-radius: 4px; font-weight: bold; cursor: pointer; text-align: center;
-        transition: all 0.1s; font-size: 13px;
+        border-radius: 4px; font-weight: bold; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; font-size: 11px;
     }
-    .btn-main { background: linear-gradient(135deg, var(--neon-pink), #aa0033); border: none; box-shadow: 0 0 10px var(--neon-pink); }
-    .btn-skip { background: #004455; border-color: var(--neon-blue); color: var(--neon-blue); }
-    .btn:active { transform: scale(0.96); filter: brightness(1.2); }
-    input[type="file"] { display: none; }
+    .btn-main { background: linear-gradient(135deg, var(--neon-pink), #aa0033); border: none; }
+    #btn-cruise { border-color: #555; color: #777; }
+    #btn-cruise.active { background: var(--neon-pink); color: #fff; border-color: #fff; box-shadow: 0 0 10px var(--neon-pink); }
 
-    /* メーター類 */
-    #bpm-display { 
-        font-size: 24px; font-weight: bold; text-align: center; margin: 5px 0; 
-        color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green);
-    }
-    #bpm-sub { font-size: 10px; text-align: center; color: #888; }
-
-    /* ヒートゲージ */
-    .heat-container { width: 100%; height: 6px; background: #333; margin-top: 5px; border-radius: 3px; overflow: hidden; }
+    /* 中央：ヒートゲージ */
+    .block-heat { flex: 1; position: relative; overflow: hidden; }
+    .heat-vals { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px; }
+    #bpm-display { font-size: 20px; font-weight: bold; color: var(--neon-green); }
+    #source-display { font-size: 10px; color: #888; font-weight: bold; } /* 音か動きかを表示 */
+    .heat-rail { width: 100%; height: 10px; background: #333; border-radius: 5px; overflow: hidden; }
     #heat-bar { width: 0%; height: 100%; background: linear-gradient(90deg, var(--neon-blue), var(--neon-pink)); transition: width 0.1s; }
 
-    /* 横スクロール・ノーツレーン */
-    #notes-lane-wrap {
-        flex: 1; position: relative; overflow: hidden;
-        background: linear-gradient(90deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 100%);
-        border-top: 2px solid var(--neon-blue);
-        border-bottom: 2px solid var(--neon-blue);
-        margin-bottom: 10px;
-    }
-    #notes-canvas { position: absolute; top:0; left:0; width:100%; height:100%; z-index: 10; }
-    
-    /* 判定ライン（左側に縦線） */
-    #hit-line {
-        position: absolute; top: 0; left: 60px; width: 4px; height: 100%;
-        background: rgba(255, 255, 255, 0.6); z-index: 5;
-        box-shadow: 0 0 15px #fff;
-    }
-
-    /* スペクトラム */
-    #spectrum-wrap {
-        height: 80px; position: relative; background: #000;
-        border: 1px solid #444; overflow: hidden;
-    }
+    .block-vis { flex: 0 0 200px; padding: 0; background: #000; border: 1px solid var(--neon-blue); }
     #spectrum-canvas { width: 100%; height: 100%; }
 
-    /* 初期ロード画面 */
+    input[type="file"] { display: none; }
     #init-screen {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 999;
         background: rgba(0,0,0,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -114,42 +98,36 @@
 <div id="container">
     <div id="video-stage">
         <video id="mainVideo" playsinline crossorigin="anonymous"></video>
-        <div class="overlay-guide">Double Tap Video to Fullscreen Mode</div>
     </div>
 
-    <div id="cockpit-panel">
-        
-        <div class="panel-section">
-            <div class="title">SYSTEM CONTROL</div>
-            <div class="btn-group">
-                <label class="btn btn-main">
-                    📂 ADD FILES
-                    <input type="file" id="subFileInput" multiple accept="video/*">
-                </label>
-                <button class="btn btn-skip" onclick="manualSkip()">SKIP ⏭</button>
-            </div>
+    <div id="bottom-deck">
+        <div id="lane-section">
+            <div id="hit-line"></div>
+            <canvas id="notes-canvas"></canvas>
         </div>
 
-        <div class="panel-section">
-            <div class="title">ENGINE HEAT (INERTIA)</div>
-            <div id="bpm-display">IDLE</div>
-            <div id="bpm-sub">WAITING INPUT...</div>
-            <div class="heat-container">
-                <div id="heat-bar"></div>
+        <div id="control-bar">
+            <div class="c-block block-btns">
+                <div class="btn-row">
+                    <label class="btn btn-main">📂 ADD<input type="file" id="subFileInput" multiple accept="video/*"></label>
+                    <button class="btn" onclick="manualSkip()">⏭ SKIP</button>
+                </div>
+                <div class="btn-row" style="margin-top:5px;">
+                    <button id="btn-cruise" class="btn" onclick="toggleCruise()">🔄 CRUISE: OFF</button>
+                </div>
             </div>
-        </div>
 
-        <div class="panel-section" style="flex:1; display:flex; flex-direction:column; padding:0; border:none; background:none;">
-            <div class="title" style="padding-left:5px;">RHYTHM FLOW &gt;&gt;&gt;</div>
-            <div id="notes-lane-wrap">
-                <div id="hit-line"></div>
-                <canvas id="notes-canvas"></canvas>
+            <div class="c-block block-heat">
+                <div class="heat-vals">
+                    <div id="source-display">SOURCE: WAIT</div>
+                    <div id="bpm-display">IDLE</div>
+                </div>
+                <div class="heat-rail">
+                    <div id="heat-bar"></div>
+                </div>
             </div>
-        </div>
 
-        <div class="panel-section" style="padding:5px;">
-            <div class="title">AUDIO VISUALIZER</div>
-            <div id="spectrum-wrap">
+            <div class="c-block block-vis">
                 <canvas id="spectrum-canvas"></canvas>
             </div>
         </div>
@@ -157,50 +135,55 @@
 </div>
 
 <div id="init-screen">
-    <h1 style="color:var(--neon-pink); text-shadow:0 0 20px var(--neon-pink); font-size:40px; margin:0;">AV COCKPIT</h1>
-    <div style="color:var(--neon-blue); letter-spacing:4px; margin-bottom:20px;">FINAL EDITION</div>
-    
-    <label class="start-btn">
-        🚀 LAUNCH SYSTEM
-        <input type="file" id="mainFileInput" multiple accept="video/*">
-    </label>
+    <h1 style="color:var(--neon-blue); letter-spacing:4px;">AV COCKPIT</h1>
+    <label class="start-btn">🚀 IGNITION<input type="file" id="mainFileInput" multiple accept="video/*"></label>
 </div>
 
-<script>
-// === 設定パラメータ ===
-    const INTERVAL_SLOW = 4000; // 最も遅い間隔
-    const INTERVAL_FAST = 450;  // 最も速い間隔
-    const NOTE_SPEED = 6;       // ノーツ速度
-    const HIT_X = 60;           // 判定ラインX
+<canvas id="motion-work-canvas" width="32" height="18" style="display:none;"></canvas>
 
-    // === 変数 ===
+<script>
+    // === 設定 ===
+    const INTERVAL_SLOW = 4000;
+    const INTERVAL_FAST = 450;
+    const NOTE_SPEED = 8;
+    const HIT_X = 80;
+
+    // === DOM ===
     const video = document.getElementById('mainVideo');
     const notesCanvas = document.getElementById('notes-canvas');
     const specCanvas = document.getElementById('spectrum-canvas');
+    const motionCanvas = document.getElementById('motion-work-canvas');
+    
     const nCtx = notesCanvas.getContext('2d');
     const sCtx = specCanvas.getContext('2d');
-    
+    const mCtx = motionCanvas.getContext('2d', { willReadFrequently: true }); // 高速化
+
     const bpmDisplay = document.getElementById('bpm-display');
-    const bpmSub = document.getElementById('bpm-sub');
+    const srcDisplay = document.getElementById('source-display');
     const heatBar = document.getElementById('heat-bar');
+    const btnCruise = document.getElementById('btn-cruise');
     const initScreen = document.getElementById('init-screen');
 
+    // === 変数 ===
     let playlist = [];
     let audioCtx, analyser;
     let notes = [];
     let cruiseTimer = null;
+    let isCruiseMode = false;
     let nextNoteTime = 0;
     
-    // ★新ロジック用変数
-    let currentHeat = 0;      // 表示上のレベル (0.0~1.0)
-    let avgEnergy = 0;        // 直近の平均音量
-    let peakEnergy = 100;     // 直近の最大音量（正規化用）
+    // ヒート管理
+    let currentHeat = 0;
+    let avgAudio = 0, peakAudio = 100;
+    
+    // 動き検知用
+    let prevFrameData = null;
+    let motionSensitivity = 1.0; // 感度調整
 
-    // === イベント設定 ===
+    // === 初期化 ===
     document.getElementById('mainFileInput').addEventListener('change', handleFileSelect);
     document.getElementById('subFileInput').addEventListener('change', handleFileSelect);
-    
-    // ダブルタップ全画面
+
     let lastTap = 0;
     document.getElementById('video-stage').addEventListener('click', () => {
         const now = new Date().getTime();
@@ -243,28 +226,85 @@
         }
     }
 
+    // === 再生制御 ===
     function playNext() {
         if(playlist.length === 0) return;
         if(cruiseTimer) clearTimeout(cruiseTimer);
         const file = playlist.shift();
         playlist.push(file);
-
         video.src = URL.createObjectURL(file);
         video.play().catch(()=>{});
-        
-        // 動画変更時リセット
         video.onloadedmetadata = () => { 
-            video.currentTime = video.duration * (0.3 + Math.random() * 0.4); 
-            // 平均値をリセットして新しい動画に馴染ませる
-            avgEnergy = 0; 
-            peakEnergy = 100;
+            video.currentTime = video.duration * (0.2 + Math.random() * 0.5); 
+            avgAudio = 0; peakAudio = 100; prevFrameData = null;
         };
-        
-        const duration = (180 + Math.random() * 120) * 1000;
+        if (isCruiseMode) setCruiseTimer();
+    }
+
+    function setCruiseTimer() {
+        const duration = (30 + Math.random() * 60) * 1000;
         cruiseTimer = setTimeout(playNext, duration);
     }
-    
+
     function manualSkip() { playNext(); }
+
+    function toggleCruise() {
+        isCruiseMode = !isCruiseMode;
+        if (isCruiseMode) {
+            btnCruise.innerText = "🔄 CRUISE: ON";
+            btnCruise.classList.add('active');
+            setCruiseTimer();
+        } else {
+            btnCruise.innerText = "🔄 CRUISE: OFF";
+            btnCruise.classList.remove('active');
+            if(cruiseTimer) clearTimeout(cruiseTimer);
+        }
+    }
+
+    // === 動き検知ロジック ===
+    function calculateMotion() {
+        if (video.paused || video.ended) return 0;
+
+        // 小さなキャンバスに今のフレームを描画
+        const w = motionCanvas.width;
+        const h = motionCanvas.height;
+        mCtx.drawImage(video, 0, 0, w, h);
+        
+        // ピクセルデータを取得
+        const frame = mCtx.getImageData(0, 0, w, h);
+        const data = frame.data; // RGBA配列
+        
+        if (!prevFrameData) {
+            prevFrameData = data;
+            return 0;
+        }
+
+        let diffSum = 0;
+        const len = data.length;
+        
+        // ピクセルごとに差分を計算 (4つ飛びでRGBAのRだけ見るだけでも十分だが、念のためRGB見る)
+        // 処理軽減のため4ピクセルごとに間引く
+        for (let i = 0; i < len; i += 16) { 
+            const rDiff = Math.abs(data[i] - prevFrameData[i]);
+            const gDiff = Math.abs(data[i+1] - prevFrameData[i+1]);
+            const bDiff = Math.abs(data[i+2] - prevFrameData[i+2]);
+            diffSum += rDiff + gDiff + bDiff;
+        }
+
+        prevFrameData = data;
+
+        // 正規化 (適当な係数で0.0〜1.0の範囲にする)
+        // 激しい動きだとdiffSumはかなり大きくなる
+        let motionScore = diffSum / (w * h * 5); 
+        
+        // シーンチェンジ対策（異常なスパイクは無視）
+        if (motionScore > 2.0) motionScore = 0; 
+        
+        // 上限キャップ
+        if (motionScore > 1.0) motionScore = 1.0;
+
+        return motionScore;
+    }
 
     // === メインループ ===
     function renderLoop() {
@@ -274,75 +314,73 @@
         syncCanvas(notesCanvas);
         syncCanvas(specCanvas);
 
-        // 1. オーディオ解析
+        // 1. Audio Level
         const bufferLen = analyser.frequencyBinCount;
         const data = new Uint8Array(bufferLen);
         analyser.getByteFrequencyData(data);
         drawSpectrum(data, bufferLen);
 
-        // エネルギー計算 (低音〜中音重視)
-        let rawEnergy = 0;
+        let rawAudio = 0;
         const range = Math.floor(bufferLen * 0.5);
-        for(let i=0; i<range; i++) rawEnergy += data[i];
-        rawEnergy = rawEnergy / range; // 0〜255
+        for(let i=0; i<range; i++) rawAudio += data[i];
+        rawAudio = rawAudio / range;
 
-        // ★新ロジック: 相対評価システム★
-        
-        // 平均音量の更新 (ゆっくり追従)
-        if (rawEnergy > 0) {
-            if (avgEnergy === 0) avgEnergy = rawEnergy;
-            else avgEnergy = avgEnergy * 0.98 + rawEnergy * 0.02;
+        // Audio Auto-Scaling
+        if (rawAudio > 0) {
+            if (avgAudio === 0) avgAudio = rawAudio;
+            else avgAudio = avgAudio * 0.98 + rawAudio * 0.02;
         }
+        if (rawAudio > peakAudio) peakAudio = rawAudio;
+        else peakAudio -= 0.1;
+        if (peakAudio < 50) peakAudio = 50;
 
-        // ピーク音量の更新 (ゆっくり下がる)
-        if (rawEnergy > peakEnergy) peakEnergy = rawEnergy;
-        else peakEnergy -= 0.1;
-        if (peakEnergy < 50) peakEnergy = 50; // 最低保証
+        let deltaAudio = rawAudio - avgAudio;
+        let heatAudio = (deltaAudio > 5) ? deltaAudio / (peakAudio * 0.4) : 0;
+        if(heatAudio > 1.0) heatAudio = 1.0; if(heatAudio < 0) heatAudio = 0;
 
-        // 「今の音が平均よりどれだけ大きいか」を計算
-        // 平均と同じなら delta = 0, 平均の1.5倍なら delta = 高い
-        let delta = rawEnergy - avgEnergy;
+        // 2. Motion Level (New!)
+        let heatMotion = calculateMotion();
         
-        // 正規化 (-20 〜 +50 くらいの幅を 0.0〜1.0にするイメージ)
-        // avgEnergyが高くても、deltaが小さければHeatは上がらない
+        // 3. Combine (Max of both)
         let targetHeat = 0;
+        let sourceText = "IDLE";
         
-        if (delta > 5) {
-            // 平均より明確に大きい時だけヒートアップ
-            targetHeat = delta / (peakEnergy * 0.4); // ピークの4割くらいの変動幅があればMAX
+        // 動きの方が大きければそっちを採用、ただし音も少し加味する
+        if (heatMotion > heatAudio) {
+            targetHeat = heatMotion;
+            // 動き検知時は文字を黄色にする
+            sourceText = `VISUAL (${(heatMotion*100).toFixed(0)}%)`;
+            srcDisplay.style.color = "var(--neon-yellow)";
         } else {
-            // 平均以下ならクールダウン
-            targetHeat = 0;
-        }
-        
-        // クランプ
-        if(targetHeat > 1.0) targetHeat = 1.0;
-        if(targetHeat < 0) targetHeat = 0;
-
-        // 慣性をつけて currentHeat を targetHeat に近づける
-        // 上がるのは早く、下がるのはゆっくり
-        if (targetHeat > currentHeat) {
-            currentHeat = currentHeat * 0.9 + targetHeat * 0.1;
-        } else {
-            currentHeat = currentHeat * 0.98 + targetHeat * 0.02;
+            targetHeat = heatAudio;
+            sourceText = `AUDIO (${(heatAudio*100).toFixed(0)}%)`;
+            srcDisplay.style.color = "var(--neon-blue)";
         }
 
-        // ヒートバー更新
+        // Smooth transition
+        if (targetHeat > currentHeat) currentHeat = currentHeat * 0.9 + targetHeat * 0.1;
+        else currentHeat = currentHeat * 0.98 + targetHeat * 0.02;
+
+        // UI Update
         heatBar.style.width = (currentHeat * 100) + "%";
+        srcDisplay.innerText = sourceText;
         
-        // ヒート値からインターバル計算
-        const currentInterval = INTERVAL_SLOW - (currentHeat * (INTERVAL_SLOW - INTERVAL_FAST));
-
-        // 表示更新
         const percent = Math.round(currentHeat * 100);
         bpmDisplay.innerText = `Lv.${percent}`;
-        bpmSub.innerText = `${(currentInterval/1000).toFixed(2)}s`;
         
-        const hue = 180 + (currentHeat * 180);
-        bpmDisplay.style.color = `hsl(${hue}, 100%, 60%)`;
-        heatBar.style.background = `hsl(${hue}, 100%, 60%)`;
+        // 色変化 (青 -> ピンク -> 黄色[激しい動き])
+        let hue = 180 + (currentHeat * 180); 
+        if (heatMotion > heatAudio && currentHeat > 0.5) {
+            // 動き検知メインで激しいときは黄色っぽくする演出
+            heatBar.style.background = `linear-gradient(90deg, var(--neon-pink), var(--neon-yellow))`;
+            bpmDisplay.style.color = `var(--neon-yellow)`;
+        } else {
+            heatBar.style.background = `hsl(${hue}, 100%, 60%)`;
+            bpmDisplay.style.color = `hsl(${hue}, 100%, 60%)`;
+        }
 
-        // ノーツ生成
+        // Spawn Notes
+        const currentInterval = INTERVAL_SLOW - (currentHeat * (INTERVAL_SLOW - INTERVAL_FAST));
         const now = Date.now();
         if (now > nextNoteTime) {
             spawnNote(currentHeat, hue);
@@ -363,11 +401,11 @@
     function drawSpectrum(data, bufferLen) {
         const W = specCanvas.width; const H = specCanvas.height;
         sCtx.clearRect(0, 0, W, H);
-        const barW = (W / bufferLen) * 2.5;
+        const barW = (W / bufferLen) * 4; 
         let x = 0;
-        for(let i = 0; i < bufferLen; i++) {
+        for(let i = 0; i < bufferLen; i+=2) { 
             const barH = (data[i] / 255) * H;
-            const hue = (i / bufferLen) * 360;
+            const hue = (i / bufferLen) * 360 + 180;
             sCtx.fillStyle = `hsl(${hue}, 100%, 50%)`;
             sCtx.fillRect(x, H - barH, barW, barH);
             x += barW + 1;
@@ -377,11 +415,11 @@
 
     function spawnNote(heat, hue) {
         const H = notesCanvas.height;
-        let height = H * (0.3 + (heat * 0.6)); 
+        let height = H * (0.4 + (heat * 0.5)); 
         notes.push({
             x: notesCanvas.width + 50,
             y: (H - height) / 2,
-            width: 20,
+            width: 30, 
             height: height,
             color: `hsl(${hue}, 100%, 60%)`,
             glow: heat * 20
@@ -401,19 +439,21 @@
             nCtx.shadowColor = n.color;
             nCtx.fillStyle = n.color;
             nCtx.globalAlpha = 0.9;
+            
             nCtx.beginPath();
-            nCtx.roundRect(n.x, n.y, n.width, n.height, 4);
+            if(nCtx.roundRect) nCtx.roundRect(n.x, n.y, n.width, n.height, 6);
+            else nCtx.rect(n.x, n.y, n.width, n.height);
             nCtx.fill();
 
-            if (n.x < HIT_X && n.x > HIT_X - NOTE_SPEED - 5) {
+            if (n.x < HIT_X && n.x > HIT_X - NOTE_SPEED - 10) {
                 line.style.background = n.color;
-                line.style.boxShadow = `0 0 30px ${n.color}`;
+                line.style.boxShadow = `0 0 20px ${n.color}`;
                 setTimeout(() => {
-                    line.style.background = 'rgba(255,255,255,0.6)';
-                    line.style.boxShadow = '0 0 15px #fff';
-                }, 100);
+                    line.style.background = 'rgba(255,255,255,0.5)';
+                    line.style.boxShadow = '0 0 10px #fff';
+                }, 80);
             }
-            if (n.x < -50) notes.splice(i, 1);
+            if (n.x < -100) notes.splice(i, 1);
         }
         nCtx.shadowBlur = 0;
     }
