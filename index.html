@@ -1,451 +1,754 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>AV Cockpit Wide Layout</title>
-<style>
-    /* === デザイン設定 === */
-    :root {
-        --bg-main: #050008;
-        --panel-bg: #0a0a0a;
-        --neon-pink: #ff0055;
-        --neon-blue: #00d2ff;
-        --neon-green: #00ff99;
-        --text-color: #eee;
-    }
-    body { background: var(--bg-main); margin: 0; overflow: hidden; font-family: 'Courier New', sans-serif; color: var(--text-color); user-select: none; }
-    
-    #container { display: flex; flex-direction: column; width: 100vw; height: 100vh; }
-
-    /* === 上部エリア：動画ステージ === */
-    #video-stage {
-        flex: 1; /* 残りの高さを占有 */
-        position: relative; 
-        background: #000; 
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>AV Cockpit: Neon Burst Style</title>
+    <style>
+      /* === 全体設定 === */
+      :root {
+        --bg-color: #050008;
+        --panel-bg: #111;
+        --accent-pink: #ff0055;
+        --accent-blue: #00d2ff;
+        --accent-green: #00ff99;
+        --accent-yellow: #ffcc00;
+        --text-main: #eee;
+      }
+      body {
+        margin: 0;
         overflow: hidden;
-        display: flex;
-        justify-content: flex-start; /* 左詰め */
-        align-items: flex-start;     /* 上詰め */
-        padding: 10px;               /* 少し余白 */
-    }
+        background: var(--bg-color);
+        color: var(--text-main);
+        font-family: "Courier New", sans-serif;
+      }
 
-    video {
-        width: auto;
-        height: auto;
-        max-width: 100%;
-        max-height: 100%;
-        aspect-ratio: 16 / 9; /* 16:9固定 */
-        box-shadow: 5px 5px 20px rgba(0, 210, 255, 0.2);
-        border: 1px solid #333;
-    }
-    
-    /* === 下部エリア：コントロールデッキ === */
-    #bottom-deck {
-        height: 220px; /* 固定高さ */
-        background: var(--panel-bg);
-        border-top: 2px solid var(--neon-pink);
+      /* メインコンテナ */
+      #container {
+        display: flex;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      /* === 左エリア（動画 ＋ ノーツ） === */
+      #stage-left {
+        flex: 1;
         display: flex;
         flex-direction: column;
-        box-shadow: 0 -5px 20px rgba(255, 0, 85, 0.2);
-        z-index: 50;
-    }
-
-    /* 1. ノーツレーン (横幅いっぱい) */
-    #lane-section {
-        flex: 1; /* デッキ内の余白を埋める */
+        background: #000;
         position: relative;
-        background: linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(20,0,10,0.5) 100%);
-        border-bottom: 1px solid var(--neon-blue);
-        overflow: hidden;
-    }
-    #notes-canvas { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
-    
-    /* 判定ライン */
-    #hit-line {
-        position: absolute; top: 0; left: 80px; width: 4px; height: 100%;
-        background: rgba(255, 255, 255, 0.5);
-        box-shadow: 0 0 10px #fff;
-        z-index: 5;
-    }
+      }
 
-    /* 2. 操作パネル (最下段) */
-    #control-bar {
-        height: 90px;
+      /* 動画ボックス */
+      #video-box {
+        width: 100%;
+        background: #000;
+        position: relative;
+        aspect-ratio: 16 / 9;
+        flex-shrink: 0;
+        border-bottom: 2px solid var(--accent-pink);
+        box-shadow: 0 5px 20px rgba(255, 0, 85, 0.2);
+        z-index: 5;
+      }
+      video {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      /* === ノーツレーン (DOMベースに変更) === */
+      #lane-box {
+        flex: 1;
+        position: relative;
+        background: linear-gradient(
+          180deg,
+          rgba(15, 23, 42, 1) 0%,
+          rgba(0, 0, 0, 1) 100%
+        );
+        overflow: hidden;
+        min-height: 100px;
+        /* 背景グリッド演出 */
+        background-image: linear-gradient(
+            rgba(0, 255, 255, 0.03) 1px,
+            transparent 1px
+          ),
+          linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+        background-size: 50px 50px;
+      }
+
+      /* ゲームエリア（ノーツが流れる場所） */
+      #notes-game-area {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        pointer-events: none;
+      }
+
+      /* === 移植されたスタイル: 判定ライン === */
+      #notes-judge-line {
+        position: absolute;
+        left: 100px;
+        top: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(
+          180deg,
+          rgba(0, 255, 255, 0) 0%,
+          rgba(0, 255, 255, 0.8) 50%,
+          rgba(0, 255, 255, 0) 100%
+        );
+        box-shadow: 0 0 10px rgba(0, 255, 255, 0.8),
+          0 0 20px rgba(0, 255, 255, 0.5), inset 0 0 20px rgba(0, 255, 255, 0.3);
+        z-index: 20;
+        animation: judgeLinePulse 2s ease-in-out infinite;
+      }
+      #notes-judge-line.hit {
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0) 0%,
+          rgba(255, 255, 255, 1) 50%,
+          rgba(255, 255, 255, 0) 100%
+        );
+        box-shadow: 0 0 30px rgba(0, 255, 255, 1),
+          0 0 60px rgba(0, 255, 255, 0.8);
+        width: 6px;
+        transition: all 0.1s;
+      }
+
+      @keyframes judgeLinePulse {
+        0%,
+        100% {
+          opacity: 0.8;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+
+      /* === 移植されたスタイル: ノーツ === */
+      .note {
+        position: absolute;
+        top: 50%;
+        width: 50px;
+        height: 50px;
+        transform: translateY(-50%);
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgba(125, 211, 252, 1) 0%,
+          rgba(14, 165, 233, 1) 50%,
+          rgba(8, 47, 73, 1) 100%
+        );
+        box-shadow: 0 0 20px rgba(0, 255, 255, 0.6),
+          0 0 40px rgba(14, 165, 233, 0.4),
+          inset 0 0 20px rgba(255, 255, 255, 0.2);
+        z-index: 15;
+        will-change: left;
+        animation: notePulse 1.5s ease-in-out infinite;
+        border: 2px solid rgba(0, 255, 255, 0.5);
+      }
+
+      .note::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 30px;
+        height: 30px;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgba(255, 255, 255, 0.8) 0%,
+          transparent 70%
+        );
+        animation: noteCore 2s ease-in-out infinite;
+      }
+
+      @keyframes notePulse {
+        0%,
+        100% {
+          box-shadow: 0 0 20px rgba(0, 255, 255, 0.6),
+            inset 0 0 20px rgba(255, 255, 255, 0.2);
+        }
+        50% {
+          box-shadow: 0 0 30px rgba(0, 255, 255, 0.9),
+            inset 0 0 30px rgba(255, 255, 255, 0.4);
+        }
+      }
+
+      @keyframes noteCore {
+        0%,
+        100% {
+          opacity: 0.6;
+          transform: translate(-50%, -50%) scale(0.8);
+        }
+        50% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1.2);
+        }
+      }
+
+      /* === 右エリア（コントロールパネル） === */
+      #panel-right {
+        width: 320px;
+        background: var(--panel-bg);
+        border-left: 1px solid #333;
         display: flex;
-        gap: 10px;
+        flex-direction: column;
         padding: 10px;
         box-sizing: border-box;
-        background: #111;
-    }
+        overflow-y: auto;
+        z-index: 20;
+      }
 
-    /* パネル内の各ブロック */
-    .c-block {
-        background: rgba(255,255,255,0.05);
+      .section {
+        background: rgba(255, 255, 255, 0.05);
         border: 1px solid #333;
+        border-radius: 6px;
+        padding: 10px;
+        margin-bottom: 10px;
+      }
+      .sec-title {
+        font-size: 11px;
+        color: var(--accent-blue);
+        font-weight: bold;
+        border-bottom: 1px solid #444;
+        padding-bottom: 4px;
+        margin-bottom: 8px;
+      }
+
+      .btn-group {
+        display: flex;
+        gap: 5px;
+        margin-bottom: 5px;
+      }
+      .btn {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #444;
+        background: #222;
+        color: #fff;
         border-radius: 4px;
-        padding: 5px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+        transition: 0.2s;
+      }
+      .btn:active {
+        transform: scale(0.96);
+      }
+      .btn-main {
+        background: var(--accent-pink);
+        border-color: var(--accent-pink);
+        color: #fff;
+      }
+
+      .status-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 5px;
+        align-items: flex-end;
+      }
+      .status-val {
+        font-size: 20px;
+        font-weight: bold;
+        color: var(--accent-green);
+        font-family: monospace;
+      }
+      .status-lbl {
+        font-size: 10px;
+        color: #888;
+      }
+
+      .prob-bar-bg {
+        width: 100%;
+        height: 6px;
+        background: #333;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 5px;
+      }
+      .prob-bar-fill {
+        height: 100%;
+        background: var(--accent-yellow);
+        width: 0%;
+        transition: width 0.5s;
+      }
+
+      /* 12段階スピードインジケーター */
+      #speed-steps-wrapper {
+        display: flex;
+        gap: 3px;
+        margin-top: 15px;
+        height: 12px;
+        align-items: flex-end;
+      }
+      .speed-step {
+        flex: 1;
+        background: #333;
+        border-radius: 2px;
+        height: 100%;
+        transition: all 0.3s;
+      }
+
+      /* 初期画面 */
+      #init-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.95);
+        z-index: 999;
         display: flex;
         flex-direction: column;
         justify-content: center;
-    }
+        align-items: center;
+      }
+      .start-btn {
+        padding: 15px 40px;
+        border: 2px solid #fff;
+        background: var(--accent-pink);
+        color: #fff;
+        font-size: 20px;
+        font-weight: bold;
+        border-radius: 30px;
+        cursor: pointer;
+        box-shadow: 0 0 20px var(--accent-pink);
+      }
+      input[type="file"] {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <div id="stage-left">
+        <div id="video-box">
+          <video id="mainVideo" playsinline crossorigin="anonymous"></video>
+        </div>
+        <div id="lane-box">
+          <div id="notes-judge-line"></div>
+          <div id="notes-game-area"></div>
+        </div>
+      </div>
 
-    /* 左：ボタン群 */
-    .block-btns { flex: 0 0 200px; gap: 5px; }
-    .btn-row { display: flex; gap: 5px; flex: 1; }
-    .btn {
-        flex: 1; background: #222; border: 1px solid var(--neon-blue); color: #fff;
-        border-radius: 4px; font-weight: bold; cursor: pointer;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 11px; transition: all 0.2s;
-    }
-    .btn:active { transform: scale(0.95); }
-    .btn-main { background: linear-gradient(135deg, var(--neon-pink), #aa0033); border: none; }
-    
-    /* クルーズボタン */
-    #btn-cruise { border-color: #555; color: #777; }
-    #btn-cruise.active { 
-        background: var(--neon-pink); color: #fff; border-color: #fff;
-        box-shadow: 0 0 10px var(--neon-pink);
-    }
+      <div id="panel-right">
+        <div class="section">
+          <div class="sec-title">RHYTHM LOGIC (SKIN TONE)</div>
 
-    /* 中央：ヒートゲージ */
-    .block-heat { flex: 1; position: relative; overflow: hidden; }
-    .heat-vals { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px; }
-    #bpm-display { font-size: 20px; font-weight: bold; color: var(--neon-green); }
-    #bpm-sub { font-size: 10px; color: #888; }
-    .heat-rail { width: 100%; height: 10px; background: #333; border-radius: 5px; overflow: hidden; }
-    #heat-bar { width: 0%; height: 100%; background: linear-gradient(90deg, var(--neon-blue), var(--neon-pink)); transition: width 0.1s; }
+          <div class="status-row">
+            <div class="status-lbl">CHANGE PROBABILITY</div>
+            <div
+              class="status-val"
+              id="disp-prob"
+              style="color: var(--accent-yellow)"
+            >
+              --%
+            </div>
+          </div>
+          <div class="prob-bar-bg">
+            <div class="prob-bar-fill" id="bar-prob"></div>
+          </div>
+          <div
+            style="
+              font-size: 9px;
+              color: #666;
+              margin-bottom: 10px;
+              text-align: right;
+            "
+          >
+            (SPEED UP CHANCE)
+          </div>
 
-    /* 右：ビジュアライザ */
-    .block-vis { flex: 0 0 200px; padding: 0; background: #000; border: 1px solid var(--neon-blue); }
-    #spectrum-canvas { width: 100%; height: 100%; }
+          <div class="status-row">
+            <div class="status-lbl">CURRENT SPEED</div>
+            <div class="status-val" id="disp-speed">3500ms</div>
+          </div>
 
-    input[type="file"] { display: none; }
+          <div style="font-size: 9px; color: #666; text-align: right">
+            NEXT CHECK IN: <span id="disp-timer">20</span>s
+          </div>
 
-    /* 初期画面 */
-    #init-screen {
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 999;
-        background: rgba(0,0,0,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center;
-    }
-    .start-btn {
-        padding: 20px 60px; font-size: 24px; border-radius: 50px; margin-top: 30px; cursor: pointer;
-        background: var(--neon-pink); color: #fff; font-weight: bold; border: 2px solid #fff;
-        box-shadow: 0 0 30px var(--neon-pink); animation: pulse 1.5s infinite;
-    }
-    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-</style>
-</head>
-<body>
+          <div style="font-size: 9px; color: #888; margin-top: 10px">
+            SPEED LEVELS (SLOW -> FAST)
+          </div>
+          <div id="speed-steps-wrapper"></div>
 
-<div id="container">
-    <div id="video-stage">
-        <video id="mainVideo" playsinline crossorigin="anonymous"></video>
-    </div>
-
-    <div id="bottom-deck">
-        <div id="lane-section">
-            <div id="hit-line"></div>
-            <canvas id="notes-canvas"></canvas>
+          <button
+            class="btn"
+            style="
+              width: 100%;
+              margin-top: 10px;
+              border-color: #00d2ff;
+              color: #00d2ff;
+            "
+            onclick="manualSpeedDown()"
+          >
+            🔽 FORCE SLOW (-3 LEVELS)
+          </button>
         </div>
 
-        <div id="control-bar">
-            <div class="c-block block-btns">
-                <div class="btn-row">
-                    <label class="btn btn-main">
-                        📂 ADD
-                        <input type="file" id="subFileInput" multiple accept="video/*">
-                    </label>
-                    <button class="btn" onclick="manualSkip()">⏭ SKIP</button>
-                </div>
-                <div class="btn-row" style="margin-top:5px;">
-                    <button id="btn-cruise" class="btn" onclick="toggleCruise()">🔄 AUTO CRUISE: OFF</button>
-                </div>
-            </div>
-
-            <div class="c-block block-heat">
-                <div class="heat-vals">
-                    <div id="bpm-sub">SYNC RATE</div>
-                    <div id="bpm-display">IDLE</div>
-                </div>
-                <div class="heat-rail">
-                    <div id="heat-bar"></div>
-                </div>
-            </div>
-
-            <div class="c-block block-vis">
-                <canvas id="spectrum-canvas"></canvas>
-            </div>
+        <div class="section">
+          <div class="sec-title">VIDEO SOURCE</div>
+          <div class="btn-group">
+            <label class="btn btn-main"
+              >📂 LOAD
+              <input type="file" id="subFileInput" multiple accept="video/*" />
+            </label>
+            <button class="btn" onclick="manualSkip()">⏭ SKIP</button>
+          </div>
+          <button
+            id="btn-cruise"
+            class="btn"
+            style="width: 100%"
+            onclick="toggleCruise()"
+          >
+            CRUISE: OFF
+          </button>
         </div>
+      </div>
     </div>
-</div>
 
-<div id="init-screen">
-    <h1 style="color:var(--neon-blue); letter-spacing:4px;">SYSTEM READY</h1>
-    <label class="start-btn">
-        🚀 IGNITION
-        <input type="file" id="mainFileInput" multiple accept="video/*">
-    </label>
-</div>
+    <div id="init-overlay">
+      <h2 style="color: var(--accent-blue)">
+        AV COCKPIT <span style="font-size: 0.5em; color: #888">NEON BURST</span>
+      </h2>
+      <label class="start-btn"
+        >START SYSTEM<input
+          type="file"
+          id="mainFileInput"
+          multiple
+          accept="video/*"
+      /></label>
+    </div>
 
-<script>
-    // === 設定 ===
-    const INTERVAL_SLOW = 4000;
-    const INTERVAL_FAST = 450;
-    const NOTE_SPEED = 8; // 横長になったので少し速く
-    const HIT_X = 80;     // 判定ライン位置
+    <canvas
+      id="skin-canvas"
+      width="160"
+      height="90"
+      style="display: none"
+    ></canvas>
 
-    // === DOM要素 ===
-    const video = document.getElementById('mainVideo');
-    const notesCanvas = document.getElementById('notes-canvas');
-    const specCanvas = document.getElementById('spectrum-canvas');
-    const nCtx = notesCanvas.getContext('2d');
-    const sCtx = specCanvas.getContext('2d');
-    
-    const bpmDisplay = document.getElementById('bpm-display');
-    const heatBar = document.getElementById('heat-bar');
-    const btnCruise = document.getElementById('btn-cruise');
-    const initScreen = document.getElementById('init-screen');
+    <script>
+      // === 設定：スピード段階 ===
+      const SPEED_LEVELS = [
+        5000, 4500, 4000, 3500, 3000, 2500, 2000, 1500, 1250, 1000, 800, 600,
+      ];
+      const START_INDEX = 3;
+      const NOTES_TRAVEL_TIME = 2000; // ノーツが端から判定ラインまで到達する時間(ms)
 
-    // === 変数 ===
-    let playlist = [];
-    let audioCtx, analyser;
-    let notes = [];
-    let cruiseTimer = null;
-    let isCruiseMode = false;
-    let nextNoteTime = 0;
-    
-    let currentHeat = 0;
-    let avgEnergy = 0;
-    let peakEnergy = 100;
+      // === DOM ===
+      const video = document.getElementById("mainVideo");
+      const gameArea = document.getElementById("notes-game-area");
+      const judgeLine = document.getElementById("notes-judge-line");
 
-    // === イベントリスナー ===
-    document.getElementById('mainFileInput').addEventListener('change', handleFileSelect);
-    document.getElementById('subFileInput').addEventListener('change', handleFileSelect);
+      const skinCanvas = document.getElementById("skin-canvas");
+      const sCtx = skinCanvas.getContext("2d", { willReadFrequently: true });
 
-    // ダブルタップで全画面
-    let lastTap = 0;
-    document.getElementById('video-stage').addEventListener('click', () => {
-        const now = new Date().getTime();
-        if (now - lastTap < 300) {
-            if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
-            else if (document.exitFullscreen) document.exitFullscreen();
+      const dispProb = document.getElementById("disp-prob");
+      const barProb = document.getElementById("bar-prob");
+      const dispSpeed = document.getElementById("disp-speed");
+      const dispTimer = document.getElementById("disp-timer");
+      const btnCruise = document.getElementById("btn-cruise");
+      const initScreen = document.getElementById("init-overlay");
+      const stepsWrapper = document.getElementById("speed-steps-wrapper");
+
+      // === 変数 ===
+      let playlist = [];
+      let cruiseTimer = null;
+      let isCruiseMode = false;
+
+      // リズムロジック用
+      let currentSpeedIndex = START_INDEX;
+      let currentSkinProb = 0.5;
+      let nextNoteTime = 0;
+      let secondsLeft = 20;
+
+      // === 初期化 ===
+      window.onload = () => {
+        // インジケーター生成
+        stepsWrapper.innerHTML = "";
+        for (let i = 0; i < SPEED_LEVELS.length; i++) {
+          const d = document.createElement("div");
+          d.className = "speed-step";
+          d.id = `step-${i}`;
+          stepsWrapper.appendChild(d);
         }
-        lastTap = now;
-    });
+        updateInfoPanel();
+      };
 
-    function handleFileSelect(e) {
+      document
+        .getElementById("mainFileInput")
+        .addEventListener("change", handleFileSelect);
+      document
+        .getElementById("subFileInput")
+        .addEventListener("change", handleFileSelect);
+
+      function handleFileSelect(e) {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
         playlist = playlist.concat(files);
         shuffleArray(playlist);
-        initAudio(); 
-        if (initScreen.style.display !== 'none') {
-            initScreen.style.display = 'none';
-            playNext();
-            requestAnimationFrame(renderLoop);
+
+        if (initScreen.style.display !== "none") {
+          initScreen.style.display = "none";
+          playNext();
+          startLogicLoop();
         }
-    }
+      }
 
-    function initAudio() {
-        if(audioCtx) return;
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        audioCtx = new AudioContext();
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 512;
-        analyser.smoothingTimeConstant = 0.8; 
-        const source = audioCtx.createMediaElementSource(video);
-        source.connect(analyser);
-        analyser.connect(audioCtx.destination);
-    }
-
-    function shuffleArray(array) {
+      function shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
+          const j = Math.floor(Math.random() * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
         }
-    }
+      }
 
-    // === 再生制御 ===
-    function playNext() {
-        if(playlist.length === 0) return;
-        
-        // タイマークリア
-        if(cruiseTimer) clearTimeout(cruiseTimer);
+      // === 肌色解析ロジック (維持) ===
+      function analyzeSkinColor() {
+        sCtx.drawImage(video, 0, 0, skinCanvas.width, skinCanvas.height);
+        const frame = sCtx.getImageData(
+          0,
+          0,
+          skinCanvas.width,
+          skinCanvas.height
+        );
+        const data = frame.data;
+        let skinPixels = 0;
+        const totalPixels = data.length / 4;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+
+          if (
+            r > 95 &&
+            g > 40 &&
+            b > 20 &&
+            r > g &&
+            r > b &&
+            Math.abs(r - g) > 15 &&
+            Math.max(r, g, b) - Math.min(r, g, b) > 15
+          ) {
+            skinPixels++;
+          }
+        }
+        const ratio = skinPixels / totalPixels;
+        currentSkinProb = 0.4 + ratio * 0.6;
+        if (currentSkinProb > 1.0) currentSkinProb = 1.0;
+        updateInfoPanel();
+      }
+
+      // === スピード変更ロジック (維持) ===
+      function startLogicLoop() {
+        requestAnimationFrame(gameLoop); // ノーツ生成ループ
+
+        setInterval(() => {
+          if (video.paused) return;
+          secondsLeft--;
+          if (secondsLeft <= 0) {
+            secondsLeft = 20;
+            decideSpeedChange();
+          }
+          dispTimer.innerText = secondsLeft;
+        }, 1000);
+      }
+
+      function decideSpeedChange() {
+        const rand = Math.random();
+        if (rand < currentSkinProb) {
+          if (currentSpeedIndex < SPEED_LEVELS.length - 1) currentSpeedIndex++;
+        } else {
+          if (currentSpeedIndex > 0) currentSpeedIndex--;
+        }
+        updateInfoPanel();
+      }
+
+      function manualSpeedDown() {
+        currentSpeedIndex -= 3;
+        if (currentSpeedIndex < 0) currentSpeedIndex = 0;
+        updateInfoPanel();
+      }
+
+      function updateInfoPanel() {
+        const probPct = (currentSkinProb * 100).toFixed(1);
+        dispProb.innerText = `${probPct}%`;
+        barProb.style.width = `${probPct}%`;
+
+        const ms = SPEED_LEVELS[currentSpeedIndex];
+        dispSpeed.innerText = `${ms}ms`;
+
+        const totalSteps = SPEED_LEVELS.length - 1;
+        const ratio = currentSpeedIndex / totalSteps;
+        const hue = 180 + ratio * 180;
+
+        dispSpeed.style.color = `hsl(${hue}, 100%, 60%)`;
+
+        for (let i = 0; i < SPEED_LEVELS.length; i++) {
+          const el = document.getElementById(`step-${i}`);
+          const stepHue = 180 + (i / totalSteps) * 180;
+
+          if (i === currentSpeedIndex) {
+            el.style.background = `hsl(${stepHue}, 100%, 60%)`;
+            el.style.boxShadow = `0 0 10px hsl(${stepHue}, 100%, 60%)`;
+            el.style.opacity = "1";
+            el.style.transform = "scaleY(1.4)";
+          } else {
+            el.style.background = "#333";
+            el.style.boxShadow = "none";
+            el.style.opacity = "0.5";
+            el.style.transform = "scaleY(1.0)";
+          }
+        }
+      }
+
+      // === ★変更: DOMベースのノーツ生成ループ ===
+      function gameLoop() {
+        requestAnimationFrame(gameLoop);
+
+        const now = Date.now();
+        const currentInterval = SPEED_LEVELS[currentSpeedIndex];
+
+        if (!video.paused && now > nextNoteTime) {
+          spawnNoteDOM();
+          nextNoteTime = now + currentInterval;
+        }
+      }
+
+      // === ★変更: DOMノーツ生成とアニメーション処理 ===
+      function spawnNoteDOM() {
+        const note = document.createElement("div");
+        note.className = "note";
+        gameArea.appendChild(note);
+
+        const startX = gameArea.offsetWidth; // 右端
+        const judgeLineX = 100; // 左から100pxの位置に判定ライン
+        const dist = startX - judgeLineX;
+        const speed = dist / NOTES_TRAVEL_TIME; // px per ms
+
+        const spawnTime = Date.now();
+        let hasHit = false;
+
+        function animate() {
+          // ゲーム停止中は動かさない場合
+          // if(video.paused) return; // ※今回は止めても動く仕様にします
+
+          const passed = Date.now() - spawnTime;
+          const curX = startX - speed * passed;
+          note.style.left = `${curX}px`;
+
+          // 判定
+          const noteCenterX = curX + 25; // width 50 / 2
+          const judgeLineCenterX = judgeLineX + 2; // width 4 / 2
+          const tolerance = 15;
+
+          if (
+            !hasHit &&
+            Math.abs(noteCenterX - judgeLineCenterX) <= tolerance
+          ) {
+            hasHit = true;
+
+            // ヒット演出
+            judgeLine.classList.add("hit");
+            setTimeout(() => judgeLine.classList.remove("hit"), 100);
+
+            // ノーツ消滅
+            note.style.transform = "translateY(-50%) scale(1.5)";
+            note.style.opacity = "0";
+            note.style.transition = "all 0.1s ease-out";
+            setTimeout(() => note.remove(), 100);
+            return;
+          }
+
+          if (curX < -60) {
+            note.remove();
+          } else {
+            requestAnimationFrame(animate);
+          }
+        }
+        requestAnimationFrame(animate);
+      }
+
+      // === 再生制御 ===
+      function playNext() {
+        if (playlist.length === 0) return;
+        if (cruiseTimer) clearTimeout(cruiseTimer);
 
         const file = playlist.shift();
         playlist.push(file);
 
         video.src = URL.createObjectURL(file);
-        video.play().catch(()=>{});
-        
-        video.onloadedmetadata = () => { 
-            // ランダムシーク
-            video.currentTime = video.duration * (0.2 + Math.random() * 0.5); 
-            avgEnergy = 0; 
-            peakEnergy = 100;
-        };
-        
-        // クルーズモードなら次のタイマーをセット
-        if (isCruiseMode) {
-            setCruiseTimer();
-        }
-    }
+        video.play().catch(() => {});
 
-    function setCruiseTimer() {
-        // 30秒〜90秒で切り替え（テスト用に短め設定、好きに変えてOK）
+        video.onloadedmetadata = () => {
+          video.currentTime = video.duration * (0.2 + Math.random() * 0.5);
+          setTimeout(() => {
+            analyzeSkinColor();
+            currentSpeedIndex = START_INDEX;
+            secondsLeft = 20;
+            updateInfoPanel();
+          }, 500);
+        };
+
+        if (isCruiseMode) setCruiseTimer();
+      }
+
+      function setCruiseTimer() {
         const duration = (30 + Math.random() * 60) * 1000;
         cruiseTimer = setTimeout(playNext, duration);
-    }
+      }
 
-    function manualSkip() {
+      function manualSkip() {
         playNext();
-    }
+      }
 
-    function toggleCruise() {
+      function toggleCruise() {
         isCruiseMode = !isCruiseMode;
         if (isCruiseMode) {
-            btnCruise.innerText = "🔄 AUTO CRUISE: ON";
-            btnCruise.classList.add('active');
-            setCruiseTimer(); // 今すぐタイマー始動
+          btnCruise.innerText = "CRUISE: ON";
+          btnCruise.style.borderColor = "var(--accent-pink)";
+          btnCruise.style.color = "#fff";
+          setCruiseTimer();
         } else {
-            btnCruise.innerText = "🔄 AUTO CRUISE: OFF";
-            btnCruise.classList.remove('active');
-            if(cruiseTimer) clearTimeout(cruiseTimer);
+          btnCruise.innerText = "CRUISE: OFF";
+          btnCruise.style.borderColor = "#444";
+          btnCruise.style.color = "#eee";
+          if (cruiseTimer) clearTimeout(cruiseTimer);
         }
-    }
+      }
 
-    // === メインループ ===
-    function renderLoop() {
-        requestAnimationFrame(renderLoop);
-        if(!analyser) return;
+      // === M5 Bluetooth接続 ===
+      const UUID_S = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+      const UUID_T = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
 
-        syncCanvas(notesCanvas);
-        syncCanvas(specCanvas);
+      async function connectDevice() {
+        try {
+          const device = await navigator.bluetooth.requestDevice({
+            filters: [{ name: "M5-ULTIMATE-STROKER" }],
+            optionalServices: [UUID_S],
+          });
+          const server = await device.gatt.connect();
+          const service = await server.getPrimaryService(UUID_S);
+          const txChar = await service.getCharacteristic(UUID_T);
 
-        // --- オーディオ解析 ---
-        const bufferLen = analyser.frequencyBinCount;
-        const data = new Uint8Array(bufferLen);
-        analyser.getByteFrequencyData(data);
-        
-        // スペクトラム描画
-        drawSpectrum(data, bufferLen);
-
-        // エネルギー計算
-        let rawEnergy = 0;
-        const range = Math.floor(bufferLen * 0.5);
-        for(let i=0; i<range; i++) rawEnergy += data[i];
-        rawEnergy = rawEnergy / range;
-
-        // ヒート計算ロジック
-        if (rawEnergy > 0) {
-            if (avgEnergy === 0) avgEnergy = rawEnergy;
-            else avgEnergy = avgEnergy * 0.98 + rawEnergy * 0.02;
+          await txChar.startNotifications();
+          txChar.addEventListener("characteristicvaluechanged", (e) => {
+            const str = new TextDecoder().decode(e.target.value);
+            // 必要ならここでステータス表示に追加できます
+          });
+          alert("M5 CONNECTED!");
+        } catch (e) {
+          alert(e);
         }
-        if (rawEnergy > peakEnergy) peakEnergy = rawEnergy;
-        else peakEnergy -= 0.1;
-        if (peakEnergy < 50) peakEnergy = 50;
-
-        let delta = rawEnergy - avgEnergy;
-        let targetHeat = (delta > 5) ? delta / (peakEnergy * 0.4) : 0;
-        if(targetHeat > 1.0) targetHeat = 1.0;
-        if(targetHeat < 0) targetHeat = 0;
-
-        if (targetHeat > currentHeat) currentHeat = currentHeat * 0.9 + targetHeat * 0.1;
-        else currentHeat = currentHeat * 0.98 + targetHeat * 0.02;
-
-        // UI反映
-        heatBar.style.width = (currentHeat * 100) + "%";
-        
-        const percent = Math.round(currentHeat * 100);
-        bpmDisplay.innerText = `Lv.${percent}`;
-        
-        const hue = 180 + (currentHeat * 180); // Cyan -> Pink
-        bpmDisplay.style.color = `hsl(${hue}, 100%, 60%)`;
-        heatBar.style.background = `hsl(${hue}, 100%, 60%)`;
-
-        // ノーツ生成
-        const currentInterval = INTERVAL_SLOW - (currentHeat * (INTERVAL_SLOW - INTERVAL_FAST));
-        const now = Date.now();
-        if (now > nextNoteTime) {
-            spawnNote(currentHeat, hue);
-            nextNoteTime = now + currentInterval;
-        }
-
-        drawNotes();
-    }
-
-    function syncCanvas(cvs) {
-        const p = cvs.parentElement;
-        if (cvs.width !== p.clientWidth || cvs.height !== p.clientHeight) {
-            cvs.width = p.clientWidth;
-            cvs.height = p.clientHeight;
-        }
-    }
-
-    function drawSpectrum(data, bufferLen) {
-        const W = specCanvas.width; const H = specCanvas.height;
-        sCtx.clearRect(0, 0, W, H);
-        // 右側のビジュアライザは見やすく棒グラフ
-        const barW = (W / bufferLen) * 4; 
-        let x = 0;
-        for(let i = 0; i < bufferLen; i+=2) { // 間引きして描画
-            const barH = (data[i] / 255) * H;
-            const hue = (i / bufferLen) * 360 + 180;
-            sCtx.fillStyle = `hsl(${hue}, 100%, 50%)`;
-            sCtx.fillRect(x, H - barH, barW, barH);
-            x += barW + 1;
-            if(x > W) break;
-        }
-    }
-
-    function spawnNote(heat, hue) {
-        const H = notesCanvas.height;
-        let height = H * (0.4 + (heat * 0.5)); 
-        notes.push({
-            x: notesCanvas.width + 50,
-            y: (H - height) / 2,
-            width: 30, // 少し太く
-            height: height,
-            color: `hsl(${hue}, 100%, 60%)`,
-            glow: heat * 20
-        });
-    }
-
-    function drawNotes() {
-        const W = notesCanvas.width; const H = notesCanvas.height;
-        nCtx.clearRect(0, 0, W, H);
-        const line = document.getElementById('hit-line');
-
-        for (let i = notes.length - 1; i >= 0; i--) {
-            const n = notes[i];
-            n.x -= NOTE_SPEED;
-
-            nCtx.shadowBlur = 10 + n.glow;
-            nCtx.shadowColor = n.color;
-            nCtx.fillStyle = n.color;
-            nCtx.globalAlpha = 0.9;
-            
-            // 角丸長方形
-            nCtx.beginPath();
-            if(nCtx.roundRect) nCtx.roundRect(n.x, n.y, n.width, n.height, 6);
-            else nCtx.rect(n.x, n.y, n.width, n.height); // 古いブラウザ対応
-            nCtx.fill();
-
-            // 判定ライン通過エフェクト
-            if (n.x < HIT_X && n.x > HIT_X - NOTE_SPEED - 10) {
-                line.style.background = n.color;
-                line.style.boxShadow = `0 0 20px ${n.color}`;
-                // 一瞬で戻す処理はCSS transitionに任せてもいいが、JSで強制リセット
-                setTimeout(() => {
-                    line.style.background = 'rgba(255,255,255,0.5)';
-                    line.style.boxShadow = '0 0 10px #fff';
-                }, 80);
-            }
-            if (n.x < -100) notes.splice(i, 1);
-        }
-        nCtx.shadowBlur = 0;
-    }
-</script>
-</body>
+      }
+    </script>
+  </body>
 </html>
